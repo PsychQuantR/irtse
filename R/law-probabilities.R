@@ -20,22 +20,24 @@ pattern_probabilities <- function(patterns, p, q) {
 }
 
 atom_probabilities <- function(plan, a, b, theta) {
-  if (plan$type == "1P") {
-    mass <- irtcore::lord_wingersky(a[[1L]] * theta, a[[1L]] * b)
+  eta <- a * (theta - b)
+  p <- plogis(eta)
+  q <- plogis(-eta)
+  mass <- if (plan$type == "lattice") {
+    lattice_probabilities(plan$weights, p, q)
   } else {
-    eta <- a * (theta - b)
-    p <- plogis(eta)
-    q <- plogis(-eta)
-    mass <- if (plan$type == "lattice") {
-      lattice_probabilities(plan$weights, p, q)
-    } else {
-      pattern_probabilities(plan$patterns, p, q)
-    }
+    pattern_probabilities(plan$patterns, p, q)
   }
   if (plan$type != "patterns") mass <- mass[plan$keep]
   total <- sum(mass)
-  if (!is.finite(total) || total <= 0) {
-    stop("theta yields a zero or non-finite normalising mass.", call. = FALSE)
+  if (!is.finite(total)) {
+    stop("theta yields a non-finite normalising mass.", call. = FALSE)
+  }
+  if (total <= 0) {
+    stop(paste0(
+      "theta yields a zero normalising mass: all retained atom probabilities ",
+      "underflowed to zero in double precision; the package does not approximate."
+    ), call. = FALSE)
   }
   if (plan$truncated) mass <- mass / total
   mass

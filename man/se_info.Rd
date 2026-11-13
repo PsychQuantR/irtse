@@ -14,11 +14,15 @@ se_info(a, b, theta)
 \item{theta}{Single finite ability, or ability estimate.}
 }
 \value{
-The actual standard error \code{1 / sqrt(sum(a^2 * P * (1 - P)))},
+The actual standard error \code{1 / sqrt(sum(a^2 * P * Q))},
 without multiplication by \code{sqrt(J)}.
 }
 \description{
 Information-based standard error
+}
+\details{
+Item probabilities are computed as \code{P = plogis(eta)} and \code{Q = plogis(-eta)},
+where \code{eta = a * (theta - b)}.
 }
 \examples{
 se_info(rep(1, 6), rep(0, 6), 0)

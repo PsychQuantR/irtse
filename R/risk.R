@@ -32,12 +32,13 @@ risk_diff <- function(a, b, theta, estimator, margin) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
   if (!missing(margin)) validate_margin(margin)
-  plan <- atom_plan(a, estimator, 2000)
+  plan <- atom_plan(a, estimator, 2000, "risk_diff()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
   reports <- scaled_reports(plan, estimates, a, b)
   weights <- atom_probabilities(plan, a, b, theta)
   J <- length(a)
-  h <- sqrt(J) * law_sd(plan, estimates, a, b, theta)
+  centre <- sum(weights * estimates)
+  h <- sqrt(J) * sqrt(sum(weights * (estimates - centre)^2))
   A <- reports$info
   B <- reports$boot
   result <- list(J = J, h_true = h,

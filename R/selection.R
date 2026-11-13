@@ -1,7 +1,7 @@
 #' Provisional choice between two standard errors
 #'
-#' This rule is not a recommendation. Its form is provisional: the underlying
-#' mathematical note is under review. It carries no guarantee at a fixed test length
+#' This rule is not a recommendation. Its form is provisional.
+#' It carries no guarantee at a fixed test length
 #' or near a zero of Delta_2, and `margin` has no theoretical default.
 #'
 #' @param a Numeric vector of finite positive item discriminations.

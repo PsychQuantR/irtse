@@ -1,11 +1,15 @@
-enumeration_error <- function(limit) {
-  stop(paste0("exact enumeration is not available: limit ", limit,
-              " exceeded; the package does not approximate."), call. = FALSE)
+enumeration_error <- function(reason) {
+  stop(paste0("exact enumeration is not available for this design: ", reason,
+              "; the package does not approximate."), call. = FALSE)
 }
 
-check_atom_count <- function(n, limit) {
+check_atom_count <- function(n, limit, caller) {
   if (!is.finite(n) || n > limit) {
-    enumeration_error(format(limit, scientific = FALSE, trim = TRUE))
+    enumeration_error(paste0(
+      "the law of T has ", format(n, scientific = FALSE, big.mark = ""),
+      " atoms, above the ", caller, " limit of ",
+      format(limit, scientific = FALSE, big.mark = "")
+    ))
   }
   invisible(NULL)
 }
@@ -34,32 +38,29 @@ reachable_points <- function(weights) {
   which(reachable) - 1L
 }
 
-atom_plan <- function(a, estimator, limit) {
+atom_plan <- function(a, estimator, limit, caller) {
   truncated <- estimator == "MLE"
-  if (all(a == a[[1L]])) {
-    width <- length(a)
-    if (width > 1e6) enumeration_error("1e6 (1000000)")
-    check_atom_count(width + 1 - 2 * truncated, limit)
-    points <- if (truncated) seq_len(width - 1L) else 0:width
-    return(list(type = "1P", T = a[[1L]] * points,
-                keep = points + 1L, truncated = truncated))
-  }
   lattice <- lattice_weights(a)
-  if (is.null(lattice)) return(pattern_plan(a, truncated, limit))
+  if (is.null(lattice)) return(pattern_plan(a, truncated, limit, caller))
   width <- sum(lattice$weights)
   if (!is.finite(width) || width > 1e6) {
-    enumeration_error("1e6 (1000000)")
+    enumeration_error(paste0(
+      "the lattice width is ",
+      format(width, scientific = FALSE, big.mark = ""),
+      ", above the limit 1e6 (largest lattice weight ",
+      format(max(lattice$weights), scientific = FALSE, big.mark = ""), ")"
+    ))
   }
   points <- reachable_points(lattice$weights)
   if (truncated) points <- points[points > 0 & points < width]
-  check_atom_count(length(points), limit)
+  check_atom_count(length(points), limit, caller)
   list(type = "lattice", T = points * lattice$step, keep = points + 1L,
        weights = lattice$weights, truncated = truncated)
 }
 
-pattern_plan <- function(a, truncated, limit) {
+pattern_plan <- function(a, truncated, limit, caller) {
   count <- 2^length(a)
-  check_atom_count(count - 2 * truncated, limit)
+  check_atom_count(count - 2 * truncated, limit, caller)
   ids <- if (truncated) seq_len(count - 2L) else 0:(count - 1L)
   patterns <- vapply(seq_along(a), function(j) {
     (ids %/% 2^(j - 1L)) %% 2 == 1

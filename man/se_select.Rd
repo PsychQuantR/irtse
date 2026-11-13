@@ -35,8 +35,8 @@ or explaining why no choice is made.}
 The three SE elements are actual standard errors, without \code{sqrt(J)} scaling.
 }
 \description{
-This rule is not a recommendation. Its form is provisional: the underlying
-mathematical note is under review. It carries no guarantee at a fixed test length
+This rule is not a recommendation. Its form is provisional.
+It carries no guarantee at a fixed test length
 or near a zero of Delta_2, and \code{margin} has no theoretical default.
 }
 \details{

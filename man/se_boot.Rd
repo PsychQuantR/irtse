@@ -25,8 +25,10 @@ Exact parametric-bootstrap standard error
 \details{
 The MLE law is conditional on responses that are neither all correct nor
 all wrong and requires at least two items. The WLE law includes all responses.
-Common discriminations use the Lord--Wingersky recursion; commensurable
-discriminations use lattice convolution; other designs enumerate patterns.
+Equal and commensurable discriminations use the same lattice convolution,
+with every lattice weight equal to 1 for equal discriminations. Other designs
+enumerate response patterns. Item probabilities are computed as
+\code{P = plogis(eta)} and \code{Q = plogis(-eta)}, where \code{eta = a * (theta - b)}.
 Computation stops if the atom count exceeds 100000 or lattice width exceeds
 1e6. The package stops instead of approximating. A missing or non-unique
 estimator root also causes an error naming the sufficient statistic T.

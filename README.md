@@ -23,11 +23,13 @@ diagnostic built on them.
 
 - **Exact computations** (no Monte Carlo, no approximation): `se_boot()` and
   `risk_diff()`. They enumerate the law of the sufficient statistic
-  `T = sum(a * X)`: by the Lord-Wingersky recursion when all discriminations
-  are equal, on a lattice when the discriminations are integer multiples of a
-  common unit, and pattern by pattern otherwise. `se_boot()` stops with an
+  `T = sum(a * X)`: on a lattice when the discriminations are equal or are
+  integer multiples of a common unit, and pattern by pattern otherwise. Item
+  probabilities are computed as `P = plogis(eta)` and `Q = plogis(-eta)`, so
+  the law stays accurate at extreme abilities. `se_boot()` stops with an
   error above 100000 atoms, `risk_diff()` above 2000 atoms, and either above a
-  lattice width of 1e6; the package never falls back to an approximation.
+  lattice width of 1e6; the error states which limit and why. The package never
+  falls back to an approximation.
 - **Closed forms**: `se_info()` (the information-based standard error) and
   `design_cumulants()`.
 - **Asymptotic coefficients**: `delta2()` and `delta3()` are the coefficients
@@ -106,7 +108,7 @@ WLE part of the underlying mathematical note has not been refereed):
 
 ## Installation
 
-Not yet published. `irtse` depends on the package `irtcore`.
+Not yet published. `irtse` depends only on base R (`stats`).
 
 ## Tests
 

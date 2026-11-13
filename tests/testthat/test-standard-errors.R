@@ -48,20 +48,32 @@ test_that("1P with a common discrimination other than one", {
 
 # Requirement: Exact law of the sufficient statistic
 test_that("Equal discriminations at extreme abilities", {
+  # Six identical Rasch items: the estimates have closed forms
+  # (MLE log(T / (6 - T)), T = 1..5; WLE qlogis((T + 1/2) / 7), T = 0..6) and
+  # the law of T is binomial. The weights are formed on the log scale with
+  # log P = -log1p(exp(-theta)) and log Q = -theta - log1p(exp(-theta)), so
+  # this reference stays exact at theta = 30 and 40. Relative differences are
+  # checked explicitly because expect_equal() compares absolutely when the
+  # values are below its tolerance.
+  reference_sd <- function(theta, totals, estimates, J = 6) {
+    log_p <- -log1p(exp(-theta))
+    log_q <- -theta - log1p(exp(-theta))
+    log_w <- lchoose(J, totals) + totals * log_p + (J - totals) * log_q
+    w <- exp(log_w - max(log_w))
+    w <- w / sum(w)
+    centre <- sum(w * estimates)
+    sqrt(sum(w * (estimates - centre)^2))
+  }
   for (theta in c(30, 40)) {
-    for (estimator in c("MLE", "WLE")) {
-      # Keep checking the remaining combinations if one call errors.
-      tryCatch({
-        x <- se_boot(rep(1, 6), rep(0, 6), theta, estimator)
-        y <- se_boot(c(rep(1, 5), 1 + 1e-9), rep(0, 6), theta, estimator)
+    mle <- reference_sd(theta, 1:5, log((1:5) / (6 - (1:5))))
+    wle <- reference_sd(theta, 0:6, qlogis(((0:6) + 1/2) / 7))
+    x_mle <- se_boot(rep(1, 6), rep(0, 6), theta, "MLE")
+    x_wle <- se_boot(rep(1, 6), rep(0, 6), theta, "WLE")
 
-        expect_true(is.finite(x))
-        expect_gt(x, 0)
-        expect_true(is.finite(y))
-        expect_gt(y, 0)
-        expect_equal(x, y, tolerance = 1e-6)
-      }, simpleError = function(error) fail(conditionMessage(error)))
-    }
+    expect_true(is.finite(x_mle) && x_mle > 0)
+    expect_true(is.finite(x_wle) && x_wle > 0)
+    expect_lt(abs(x_mle / mle - 1), 1e-8)
+    expect_lt(abs(x_wle / wle - 1), 1e-8)
   }
 })
 
@@ -137,7 +149,7 @@ test_that("Lattice limits", {
   ))
   check_error_message(expect_error(
     se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
-    "1000001", fixed = TRUE
+    "1001001", fixed = TRUE
   ))
   check_error_message(expect_error(
     se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),

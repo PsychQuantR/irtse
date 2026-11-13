@@ -4,9 +4,9 @@ Unreleased development version.
 
 * `se_info()`: information-based standard error at an ability estimate.
 * `se_boot()`: exact parametric-bootstrap standard error, by exact enumeration
-  of the law of the sufficient statistic (Lord-Wingersky recursion for equal
-  discriminations, lattice convolution for commensurable discriminations,
-  pattern enumeration otherwise); MLE conditional on responses that are neither
+  of the law of the sufficient statistic (lattice convolution for equal or
+  commensurable discriminations, pattern enumeration otherwise; `P` and `Q`
+  both computed with `plogis()`); MLE conditional on responses that are neither
   all correct nor all wrong, WLE on all responses.
 * `design_cumulants()`: design averages k2 to k7.
 * `delta2()`, `delta3()`: closed forms of the second- and third-order
@@ -20,5 +20,6 @@ Unreleased development version.
 * `se_select()`: provisional selection rule with a required `margin`; not a
   recommendation (see the README for what is and is not known about it).
 * Exact enumeration stops with an error above its limits (100000 atoms for
-  `se_boot()`, 2000 for `risk_diff()`, lattice width 1e6) instead of
-  approximating.
+  `se_boot()`, 2000 for `risk_diff()`, lattice width 1e6), stating the limit
+  and the reason, instead of approximating.
+* No dependency other than `stats`.
