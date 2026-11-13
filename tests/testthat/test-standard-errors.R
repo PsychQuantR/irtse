@@ -337,6 +337,10 @@ test_that("Extreme abilities and discriminations", {
   )
   for (i in seq_along(cases)) {
     case <- cases[[i]]
+    if (i %in% c(3L, 7L, 8L)) {
+      expect_error(case$call(), "representable", fixed = TRUE)
+      next
+    }
     value <- tryCatch(case$call(), error = identity)
     if (inherits(value, "error")) {
       # Only the rows whose spec entry offers the alternative may stop.
@@ -503,14 +507,8 @@ test_that("Extreme risk targets preserve a representable standard deviation", {
 
 # Requirement: Numerical range; Estimators on the sufficient statistic
 test_that("Underflowed score tails cannot certify a false MLE root", {
-  value <- tryCatch(se_boot(c(1, 2), c(-1000, 1000), 3000, "MLE"), error = identity)
-  if (inherits(value, "error")) {
-    expect_match(conditionMessage(value), "representable", fixed = TRUE)
-  } else {
-    expected <- (1000 - (1000 - log(2)) / 3) / 2
-    expect_true(is.finite(value) && value > 0)
-    expect_lt(abs(value / expected - 1), 1e-12)
-  }
+  expect_error(se_boot(c(1, 2), c(-1000, 1000), 3000, "MLE"),
+               "representable", fixed = TRUE)
 })
 
 # Requirement: Estimators on the sufficient statistic
@@ -533,4 +531,178 @@ test_that("A coefficient outside double range stops the functions that return it
                "representable", fixed = TRUE)
   expect_error(se_select(rep(1, 4), rep(0, 4), 300, "MLE", 0),
                "representable", fixed = TRUE)
+})
+
+
+# Requirement: Numerical range
+test_that("Extreme range rows require their specified values and errors", {
+  expect_error(se_boot(c(1, 2), c(-1000, 1000), 3000, "MLE"),
+               "representable", fixed = TRUE)
+  expect_lt(abs(delta3(1, 0, 75, "MLE") / (-(9689/768) * exp(300)) - 1),
+            1e-10)
+})
+
+# Requirement: Numerical range; Information-based standard error
+test_that("Information does not require representable higher cumulants", {
+  expect_lt(abs(se_info(c(1, 1), c(0, 1000), 0) / 2 - 1), 1e-12)
+})
+
+# Requirement: Numerical range; Exact scaled risk of the selection rule
+test_that("Risk evaluates both MLE coefficients even outside the margin", {
+  expect_error(risk_diff(rep(1e-153, 3), rep(0, 3), 0, "MLE", margin = 0),
+               "representable", fixed = TRUE)
+  expect_error(se_select(rep(1e-153, 3), rep(0, 3), -log(2) / 1e-153,
+                         "MLE", margin = 0), "representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+test_that("Small logits keep their odd cumulants", {
+  expect_lt(abs(design_cumulants(1, 0, 1e-18)[["k3"]] / -1.25e-19 - 1), 1e-10)
+  expect_lt(abs(delta2(1, 0, 1e-18, "MLE") / -1.4e-35 - 1), 1e-10)
+  expect_lt(abs(delta2(1, 0, 1e-18, "WLE") / -5e-36 - 1), 1e-10)
+  expect_lt(abs(delta2(1e-20, 0, 1, "MLE") / -14 - 1), 1e-10)
+  expect_lt(abs(delta2(1e-20, 0, 1, "WLE") / -5 - 1), 1e-10)
+  selected <- se_select(rep(1e-16, 2), rep(0, 2), 0.1, "WLE", margin = 0)
+  expect_identical(selected$choice, "info")
+  expect_lt(abs(selected$delta2 / -0.05 - 1), 1e-10)
+  expect_lt(abs(se_diagnostic(rep(1, 6), rep(0, 6), 1e-18,
+                             "WLE")$sign_delta2 / -1 - 1), 1e-10)
+})
+
+# Requirement: Numerical range
+test_that("Large common shifts preserve law-based reports", {
+  expect_lt(abs(se_boot(1, 1e16, 1e16, "WLE") / log(3) - 1), 1e-12)
+  r <- risk_diff(1, 1e16, 1e16, "WLE", margin = 0)
+  expect_lt(abs(r$h_true / log(3) - 1), 1e-10)
+  expect_lt(abs(r$smse_info / (4 / sqrt(3) - log(3))^2 - 1), 1e-10)
+  expect_lt(abs(r$smse_boot / ((sqrt(3) / 2 - 1) * log(3))^2 - 1), 1e-10)
+  expect_lt(abs(r$smse_select / (4 / sqrt(3) - log(3))^2 - 1), 1e-10)
+  expect_lt(abs(se_select(1, 1e16, 1e16, "WLE", margin = 0)$se_boot /
+                  log(3) - 1), 1e-12)
+})
+
+# Requirement: Numerical range
+test_that("Cancellation between items removes only exact opposite pairs", {
+  expected <- plogis(-40) * plogis(40) * (plogis(40) - plogis(-40)) / 3
+  for (b in list(c(-1, 40, 1), c(-1, 1, 40))) {
+    expect_lt(abs(design_cumulants(rep(1, 3), b, 0)[["k3"]] / expected - 1),
+              1e-12)
+  }
+  value <- tryCatch(design_cumulants(rep(2^100, 2),
+                                    c(1, -(1 + 2^-50)) / 2^100, 0),
+                    error = identity)
+  if (inherits(value, "error")) {
+    expect_match(conditionMessage(value), "not resolved", fixed = TRUE)
+  } else {
+    expect_true(is.finite(value[["k3"]]) && value[["k3"]] != 0)
+  }
+})
+
+# Requirement: Input validation at the boundary
+test_that("One-item MLE errors start with the required prefix", {
+  expect_error(se_boot(1, 0, 0, "MLE"), "^MLE requires")
+})
+
+# Requirement: Documented scope of the selection rule
+test_that("Selection scope requires a compact set with no zero", {
+  rd_path <- testthat::test_path("..", "..", "man", "se_select.Rd")
+  rd <- if (file.exists(rd_path)) readLines(rd_path, warn = FALSE) else {
+    as.character(tools::Rd_db("irtse")[["se_select.Rd"]])
+  }
+  readme <- testthat::test_path("..", "..", "README.md")
+  if (!file.exists(readme)) readme <- system.file("README.md", package = "irtse")
+  texts <- list(paste(as.character(rd), collapse = " "))
+  if (file.exists(readme)) texts <- c(texts, list(readLines(readme, warn = FALSE)))
+  for (text in texts) {
+    text <- gsub("\\s+", " ", paste(text, collapse = " "))
+    expect_match(text, "compact set", fixed = TRUE)
+    expect_match(text, "no zero", fixed = TRUE)
+  }
+})
+
+# Requirement: Package metadata and documentation
+test_that("Suggests declares the required testthat version", {
+  suggests <- gsub("\\s+", " ", utils::packageDescription("irtse")$Suggests)
+  expect_match(suggests, "testthat (>= 3.0.0)", fixed = TRUE)
+})
+
+# Requirement: Package metadata and documentation
+test_that("All source files exclude local paths and private tracker references", {
+  source <- testthat::test_path("..", "..")
+  if (dir.exists(file.path(source, "R"))) {
+    paths <- c(file.path(source, c("DESCRIPTION", "README.md", "NEWS.md")),
+               unlist(lapply(c("R", "man", "tests"), function(dir) {
+                 list.files(file.path(source, dir), recursive = TRUE,
+                            full.names = TRUE, all.files = TRUE)
+               }), use.names = FALSE))
+  } else {
+    paths <- list.files(system.file(package = "irtse"), recursive = TRUE,
+                        full.names = TRUE, all.files = TRUE)
+  }
+  patterns <- c(paste0("/", "Users", "/"), paste0("/", "home", "/"),
+                paste0("[A-Za-z]", ":", "\\\\"),
+                paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+"),
+                paste0("/", "issues", "/", "[0-9]+"))
+  bad <- vapply(paths, function(path) {
+    bytes <- readBin(path, "raw", n = file.info(path)$size)
+    any(vapply(patterns, function(pattern) length(grepRaw(pattern, bytes)) > 0L,
+               logical(1)))
+  }, logical(1))
+  expect_false(any(bad), info = paste(paths[bad], collapse = ", "))
+})
+
+# Requirement: Exact law of the sufficient statistic
+test_that("Nearly equal discriminations are not merged", {
+  d <- 2^-40
+  expected <- 2 * d / (1 + (1 + d)^2)
+  expect_lt(abs(se_boot(c(1, 1 + d), c(0, 0), 0, "MLE") / expected - 1), 1e-6)
+  expect_null(irtse:::lattice_weights(c(1, 1 + d)))
+})
+
+# Requirement: Exact law of the sufficient statistic; Limits of exact enumeration
+test_that("Representation tolerance preserves decimal and earlier lattices", {
+  expect_lt(abs(se_boot(c(0.1, 0.2, 0.3), c(0, 0, 0), 0, "WLE") /
+                  (10 * se_boot(c(1, 2, 3), c(0, 0, 0), 0, "WLE")) - 1), 1e-10)
+  cases <- list(c(0.1, 0.2, 0.3), c(1, 1000001/1000), rep(c(1, 997), 600),
+                c(1, 999), c(1, 2), c(1, 2, 3, 1.5), rep(2, 5))
+  for (a in cases) expect_false(is.null(irtse:::lattice_weights(a)))
+})
+
+# Requirement: Estimators on the sufficient statistic
+test_that("Three WLE roots closer together than the grid are counted", {
+  B <- acosh(4) + 1e-8
+  expect_error(irtse:::estimate_atoms(2, rep(1, 3), c(-100, -B, B), "WLE"),
+               "T = 2", fixed = TRUE)
+})
+
+# Requirement: Exact scaled risk of the selection rule; Numerical range
+test_that("An underflowed no-choice atom still makes selection risk undefined", {
+  r <- risk_diff(rep(1, 2), rep(0, 2), 800, "WLE", margin = 0)
+  expect_true(is.na(r$smse_select))
+  expect_identical(r$p_select[["none"]], 0)
+})
+
+# Requirement: Estimators on the sufficient statistic
+test_that("Compensated MLE score preserves the saturated asymmetric tail", {
+  score <- irtse:::estimate_equation(0, rep(1, 3), c(-40, 0, 0), "MLE", T = 2)$value
+  expect_lt(abs(score / (1 / (1 + exp(40))) - 1), 1e-10)
+})
+
+# Requirement: Estimators on the sufficient statistic
+test_that("The saturated asymmetric MLE root matches its closed form", {
+  # With x = exp(t), the T = 2 equation reduces to x^2 - x - 2 exp(-40) = 0.
+  # Rationalising x - 1 avoids cancellation in the positive quadratic root.
+  expected <- log1p(4 * exp(-40) / (sqrt(1 + 8 * exp(-40)) + 1))
+  root <- irtse:::estimate_atoms(2, rep(1, 3), c(-40, 0, 0), "MLE")
+  expect_lt(abs(root - expected), 1e-25)
+})
+
+# Requirement: Numerical range; Diagnostic without choosing
+test_that("An unresolved average stops, and is a zero in the diagnostic search", {
+  # Logits 1 and -(1 + 2^-52) are not an exact pair, but their k3 terms round
+  # to the same magnitude, so the computed sum is exactly 0.
+  expect_error(design_cumulants(rep(1, 2), c(-1, 1 + 2^-52), 0),
+               "not resolved", fixed = TRUE)
+  factors <- irtse:::coefficient_factors(rep(1, 2), c(-1, 1 + 2^-52), 0, "MLE")
+  expect_identical(factors[[1L]], 0)
 })
