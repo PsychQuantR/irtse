@@ -1,5 +1,24 @@
 # irtse 0.0.0.9000
 
-* Unreleased development version.
-* Exported functions: `se_info()`, `se_boot()`, `design_cumulants()`,
-  `delta2()`, `delta3()`, `risk_diff()`, `se_diagnostic()`, `se_select()`.
+Unreleased development version.
+
+* `se_info()`: information-based standard error at an ability estimate.
+* `se_boot()`: exact parametric-bootstrap standard error, by exact enumeration
+  of the law of the sufficient statistic (Lord-Wingersky recursion for equal
+  discriminations, lattice convolution for commensurable discriminations,
+  pattern enumeration otherwise); MLE conditional on responses that are neither
+  all correct nor all wrong, WLE on all responses.
+* `design_cumulants()`: design averages k2 to k7.
+* `delta2()`, `delta3()`: closed forms of the second- and third-order
+  coefficients of the difference of the two scaled mean squared errors; the
+  MLE and the WLE have separate Delta_2, and `delta3()` returns `NA` for the
+  WLE.
+* `risk_diff()`: exact finite-length scaled mean squared errors and their
+  difference; with `margin`, also the exact scaled risk of the selection rule.
+* `se_diagnostic()`: Delta_2, Delta_3, the sign of Delta_2 and the nearest zero
+  of Delta_2, without choosing a standard error.
+* `se_select()`: provisional selection rule with a required `margin`; not a
+  recommendation (see the README for what is and is not known about it).
+* Exact enumeration stops with an error above its limits (100000 atoms for
+  `se_boot()`, 2000 for `risk_diff()`, lattice width 1e6) instead of
+  approximating.
