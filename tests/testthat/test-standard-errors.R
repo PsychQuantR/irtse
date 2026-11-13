@@ -446,11 +446,11 @@ test_that("Package files contain no local paths or private issue references", {
                       full.names = TRUE, all.files = TRUE)
   source_r <- testthat::test_path("..", "..", "R")
   if (dir.exists(source_r)) paths <- c(paths, list.files(source_r, full.names = TRUE))
-  forbidden_path <- paste0("/", "Users", "/")
+  forbidden_path <- posix_local_path_pattern()
   private_issue <- paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+")
   bad <- vapply(unique(paths), function(path) {
     bytes <- readBin(path, "raw", n = file.info(path)$size)
-    length(grepRaw(forbidden_path, bytes, fixed = TRUE)) > 0L ||
+    length(grepRaw(forbidden_path, bytes)) > 0L ||
       length(grepRaw(private_issue, bytes)) > 0L
   }, logical(1))
   expect_false(any(bad), info = paste(names(bad)[bad], collapse = ", "))
@@ -630,8 +630,7 @@ test_that("All source files exclude local paths and private tracker references",
     paths <- list.files(system.file(package = "irtse"), recursive = TRUE,
                         full.names = TRUE, all.files = TRUE)
   }
-  patterns <- c(paste0("/", "Users", "/"), paste0("/", "home", "/"),
-                paste0("[A-Za-z]", ":", "\\\\"),
+  patterns <- c(paste0("[A-Za-z]", ":", "\\\\"),
                 paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+"),
                 paste0("/", "issues", "/", "[0-9]+"))
   patterns <- c(patterns, additional_local_path_patterns())
@@ -723,25 +722,25 @@ test_that("Law-based reports preserve exactly representable common shifts", {
 })
 
 # Requirement: Numerical range
-test_that("Delta_2 rejects a non-finite computed logit", {
+test_that("Delta_2 rejects a discrimination outside the supported range", {
   expect_error(delta2(c(1, 1e308), c(0, 10), 0, "MLE"),
                "^a must")
 })
 
 # Requirement: Numerical range
-test_that("Information rejects a non-finite computed logit", {
+test_that("Information rejects a discrimination outside the supported range", {
   expect_error(se_info(c(1, 1e308), c(0, 10), 0),
                "^a must")
 })
 
 # Requirement: Numerical range
-test_that("Cumulants reject a non-finite computed logit", {
+test_that("Cumulants reject a discrimination outside the supported range", {
   expect_error(design_cumulants(c(1, 1e308), c(0, 10), 0),
                "^a must")
 })
 
 # Requirement: Numerical range
-test_that("Bootstrap rejects a non-finite computed logit", {
+test_that("Bootstrap rejects a discrimination outside the supported range", {
   expect_error(se_boot(c(1, 1e308), c(0, 10), 0, "WLE"),
                "^a must")
 })
@@ -753,7 +752,7 @@ test_that("A nonzero logit whose half underflows is rejected", {
 })
 
 # Requirement: Numerical range
-test_that("A representable small logit retains the MLE coefficient", {
+test_that("A representable small logit retains the third cumulant", {
   expect_lt(abs(design_cumulants(1, 0, 2^-1000)[["k3"]] / -2^-1003 - 1), 1e-10)
 })
 
@@ -778,6 +777,7 @@ test_that("Local path patterns catch POSIX and forward-slash drive paths", {
   forbidden <- c(paste0("/", "tmp", "/x.R"),
                  paste0("/", "var", "/folders/x"),
                  paste0("/", "private", "/x"),
+                 paste0("/", "srv", "/irtse/private.txt"),
                  paste0("C", ":", "/work/x.R"))
   matches <- function(text) {
     any(vapply(additional_local_path_patterns(), function(pattern) {
@@ -786,4 +786,144 @@ test_that("Local path patterns catch POSIX and forward-slash drive paths", {
   }
   for (text in forbidden) expect_true(matches(text))
   expect_false(matches("https://example.org/a"))
+  expect_false(matches(paste0("https://example.org/", "tmp", "/manual.html")))
+})
+
+# Requirement: Estimators on the sufficient statistic
+test_that("Score tails representable only as subnormal numbers are retained", {
+  s <- 1000
+  B <- 0.72
+  expected_root <- log(2) / (2 * s)
+  expected_se <- (B + expected_root) * sqrt(2) * exp(-s * B / 2)
+  for (direction in c(-1, 1)) {
+    b <- direction * c(B, -B, -B)
+    total <- if (direction == -1) s else 2 * s
+    root <- irtse:::estimate_atoms(total, rep(s, 3), b, "MLE")
+    expect_lt(abs(root / (direction * expected_root) - 1), 1e-6)
+    expect_lt(abs(se_boot(rep(s, 3), b, 0, "MLE") / expected_se - 1), 1e-6)
+  }
+})
+
+# Requirement: Exact law of the sufficient statistic
+test_that("Identified design with separated difficulties keeps its symmetric root", {
+  a <- c(1, 1 + 2^-50)
+  b <- c(50, -50)
+  result <- risk_diff(a, b, 0, "MLE")
+  expect_identical(result$h_true, 0)
+  expect_identical(result$smse_boot, 0)
+  expect_lt(abs(result$smse_info / (exp(50) * (1 + exp(-50))^2) - 1), 1e-10)
+  expect_identical(se_boot(a, b, 0, "MLE"), 0)
+})
+
+# Requirement: Exact law of the sufficient statistic
+test_that("Identified designs give identical risks and rule reports at every atom", {
+  a <- c(1, 1 + 2^-50, 1)
+  b <- c(50, -50, 0)
+  result <- risk_diff(a, b, 0.3, "MLE")
+  expected <- risk_diff(c(1, 1, 1), b, 0.3, "MLE")
+  for (field in names(expected)) {
+    expect_identical(result[[field]], expected[[field]], info = field)
+  }
+  result <- risk_diff(a, b, 0.3, "MLE", margin = 0)
+  expected <- risk_diff(c(1, 1, 1), b, 0.3, "MLE", margin = 0)
+  for (field in names(expected)) {
+    expect_identical(result[[field]], expected[[field]], info = field)
+  }
+})
+
+# Requirement: Exact law of the sufficient statistic; Numerical range
+test_that("Selection identifies only its law-based bootstrap report", {
+  a <- c(1, 1 + 2^-50, 1)
+  b <- c(50, -50, 0)
+  selected <- se_select(a, b, 0.3, "MLE", margin = 0)
+  expect_identical(selected$se_boot, se_boot(c(1, 1, 1), b, 0.3, "MLE"))
+  expect_identical(selected$se_info, se_info(a, b, 0.3))
+  expect_identical(selected$delta2, delta2(a, b, 0.3, "MLE"))
+  expect_identical(selected$delta3, delta3(a, b, 0.3, "MLE"))
+})
+
+# Requirement: Numerical range
+test_that("Errors from intermediate values may stop an otherwise representable result", {
+  cases <- list(
+    list(call = function() {
+      risk_diff(rep(0.7092, 3), c(-1000, 1000, 1000), 1000, "MLE")$smse_info
+    }, expected = exp(709.2) / (2 * sqrt(2) * 0.7092^2)),
+    list(call = function() design_cumulants(c(1, 1000), c(730, 0), 0)[["k3"]],
+         expected = exp(-730) / 2),
+    list(call = function() delta3(c(1, 1000), c(730, 0), 0, "MLE"),
+         expected = -1936 / 3e6)
+  )
+  for (case in cases) {
+    value <- tryCatch(case$call(), error = identity)
+    if (inherits(value, "error")) {
+      expect_match(conditionMessage(value), "representable", fixed = TRUE)
+    } else {
+      expect_true(length(value) == 1L && is.finite(value) && value != 0)
+      expect_lt(abs(value / case$expected - 1), 1e-8)
+    }
+  }
+})
+
+# Requirement: Numerical range
+test_that("A risk whose reports agree with the target may round to zero", {
+  value <- risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot
+  expect_true(is.finite(value) && value >= 0 && value < 1e-100)
+})
+
+# Requirement: Numerical range
+test_that("The internal logit guard rejects unrepresentable logits directly", {
+  for (eta in c(Inf, -Inf, NaN, NA_real_, 2^-1074, -2^-1074)) {
+    expect_error(irtse:::checked_logits(c(0, eta)), "representable", fixed = TRUE)
+  }
+  ordinary <- c(-720, -1, 0, 1e-18, 720)
+  expect_identical(irtse:::checked_logits(ordinary), ordinary)
+})
+
+# Requirement: Numerical range; Diagnostic without choosing
+test_that("Diagnostic windows may extend beyond the supported input range", {
+  for (location in c(0, 1000)) {
+    expect_no_error(result <- se_diagnostic(1e-3, location, location, "WLE"))
+    expect_lt(abs(result$se_info / 2000 - 1), 1e-12)
+  }
+})
+
+# Requirement: Package metadata and documentation; Numerical range
+test_that("README and help retain both item-level accuracy qualifications", {
+  texts <- list()
+  readme <- testthat::test_path("..", "..", "README.md")
+  if (file.exists(readme)) texts$README <- readLines(readme, warn = FALSE)
+  for (name in c("se_info", "se_boot", "design_cumulants", "delta2", "delta3",
+                 "risk_diff", "se_diagnostic", "se_select")) {
+    rd_name <- paste0(name, ".Rd")
+    rd_path <- testthat::test_path("..", "..", "man", rd_name)
+    texts[[name]] <- if (file.exists(rd_path)) readLines(rd_path, warn = FALSE) else {
+      as.character(tools::Rd_db("irtse")[[rd_name]])
+    }
+  }
+  for (name in names(texts)) {
+    text <- gsub("\\s+", " ", paste(texts[[name]], collapse = " "))
+    expect_match(text, "cumulant polynomial near its zeros", fixed = TRUE, info = name)
+    expect_match(text, "theta - b", fixed = TRUE, info = name)
+  }
+})
+
+# Requirement: Package metadata and documentation
+test_that("POSIX local paths start at a path boundary and exclude URL paths", {
+  roots <- c("Users", "home", "tmp", "var", "private", "opt", "Volumes",
+             "srv", "etc", "mnt", "usr", "root")
+  matches <- function(text) {
+    any(vapply(additional_local_path_patterns(), function(pattern) {
+      length(grepRaw(pattern, charToRaw(text))) > 0L
+    }, logical(1)))
+  }
+  for (root in roots) {
+    path <- paste0("/", root, "/example.txt")
+    for (prefix in c("", " ", "\n", "'", "(", "=")) {
+      expect_true(matches(paste0(prefix, path)), info = paste(root, prefix))
+    }
+    for (prefix in c("a", "Z", "1", ".", "-", "_", "/", ":",
+                     "https://example.org")) {
+      expect_false(matches(paste0(prefix, path)), info = paste(root, prefix))
+    }
+  }
 })
