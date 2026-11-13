@@ -8,16 +8,13 @@
 #' @details
 #' Item probabilities are computed as `P = plogis(eta)` and `Q = plogis(-eta)`,
 #' where `eta = a * (theta - b)`. Information is accumulated on the log scale.
-#' Numerical computations use log scales and normalised cumulant ratios where
-#' needed. A result outside the range of double precision stops with an error
-#' containing `representable`, rather than returning a non-finite value or
-#' silently underflowing to zero.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' se_info(rep(1, 6), rep(0, 6), 0)
 se_info <- function(a, b, theta) {
   validate_design(a, b, theta)
-  design <- design_ratios(a, b, theta)
+  design <- log_information(a, b, theta)
   exp_value(-(log(length(a)) + design$log_k2) / 2, what = "information SE")
 }
 
@@ -41,19 +38,24 @@ se_info <- function(a, b, theta) {
 #' Computation stops if the atom count exceeds 100000 or lattice width exceeds
 #' 1e6. The package stops instead of approximating. A missing or non-unique
 #' estimator root also causes an error naming the sufficient statistic T.
-#' WLE roots are counted on a grid together with local extrema located by
-#' derivative sign changes between grid points. A pair of extrema inside one
-#' grid cell can still be missed; this count does not certify global uniqueness.
-#' Numerical computations use log scales and normalised cumulant ratios where
-#' needed. A result outside the range of double precision stops with an error
-#' containing `representable`, rather than returning a non-finite value or
-#' silently underflowing to zero.
+#' WLE roots are counted on a grid and at function extrema located by derivative
+#' sign changes and searches at sampled local extrema of the derivative.
+#' Features narrower than the grid spacing can still be missed; this count
+#' does not certify global uniqueness.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' se_boot(rep(1, 4), rep(0, 4), 0, "MLE")
 se_boot <- function(a, b, theta, estimator) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
+  coordinates <- reference_coordinates(b, theta)
+  b <- coordinates$b
+  theta <- coordinates$theta
+  bootstrap_se(a, b, theta, estimator)
+}
+
+bootstrap_se <- function(a, b, theta, estimator) {
   plan <- atom_plan(a, estimator, 100000, "se_boot()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
   law_sd(plan, estimates, a, b, theta)

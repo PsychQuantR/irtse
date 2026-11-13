@@ -70,16 +70,25 @@ identical items or a fixed item block repeated.
 Exact enumeration stops above 100000 atoms or lattice width 1e6; the package
 stops instead of approximating. The MLE requires at least two items. A missing
 or non-unique root causes an error naming T.
-WLE roots are counted on a grid together with local extrema located by
-derivative sign changes between grid points. A pair of extrema inside one
-grid cell can still be missed; this count does not certify global uniqueness.
-Numerical computations use log scales and normalised cumulant ratios where
-needed. A result outside the range of double precision stops with an error
-containing \code{representable}, rather than returning a non-finite value or
-silently underflowing to zero. This includes a Delta_2 whose sign is
-determined but whose value is out of range: the function returns the
-coefficient, so it does not report a sign or a choice without it.
+WLE roots are counted on a grid and at function extrema located by derivative
+sign changes and searches at sampled local extrema of the derivative.
+Features narrower than the grid spacing can still be missed; this count
+does not certify global uniqueness.
 }
+\section{Numerical accuracy}{
+
+Results depend on \code{theta} and \code{b} only through \code{a * (theta - b)} computed in
+double precision; computations using the law of T and diagnostic zero searches
+use coordinates relative to the midpoint of the difficulties.
+A design average whose nonzero terms cancel to zero after rounding stops with
+\verb{not resolved}; accuracy degrades with cancellation between items and near
+the zeros of a coefficient.
+Log scales and normalised cumulant ratios avoid intermediate overflow and
+underflow, while a nonzero result outside double precision stops with
+\code{representable} (except underflowed probabilities in \code{risk_diff()}'s \code{p_select},
+which are returned as zero).
+}
+
 \examples{
 se_select(rep(1, 4), rep(0, 4), 0, "MLE", margin = 0)
 }

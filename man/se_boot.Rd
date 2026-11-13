@@ -34,14 +34,25 @@ are computed as
 Computation stops if the atom count exceeds 100000 or lattice width exceeds
 1e6. The package stops instead of approximating. A missing or non-unique
 estimator root also causes an error naming the sufficient statistic T.
-WLE roots are counted on a grid together with local extrema located by
-derivative sign changes between grid points. A pair of extrema inside one
-grid cell can still be missed; this count does not certify global uniqueness.
-Numerical computations use log scales and normalised cumulant ratios where
-needed. A result outside the range of double precision stops with an error
-containing \code{representable}, rather than returning a non-finite value or
-silently underflowing to zero.
+WLE roots are counted on a grid and at function extrema located by derivative
+sign changes and searches at sampled local extrema of the derivative.
+Features narrower than the grid spacing can still be missed; this count
+does not certify global uniqueness.
 }
+\section{Numerical accuracy}{
+
+Results depend on \code{theta} and \code{b} only through \code{a * (theta - b)} computed in
+double precision; computations using the law of T and diagnostic zero searches
+use coordinates relative to the midpoint of the difficulties.
+A design average whose nonzero terms cancel to zero after rounding stops with
+\verb{not resolved}; accuracy degrades with cancellation between items and near
+the zeros of a coefficient.
+Log scales and normalised cumulant ratios avoid intermediate overflow and
+underflow, while a nonzero result outside double precision stops with
+\code{representable} (except underflowed probabilities in \code{risk_diff()}'s \code{p_select},
+which are returned as zero).
+}
+
 \examples{
 se_boot(rep(1, 4), rep(0, 4), 0, "MLE")
 }

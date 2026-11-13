@@ -19,7 +19,7 @@ lattice_weights <- function(a) {
   for (m in seq_len(1000L)) {
     scaled <- m * ratios
     if (all(is.finite(scaled)) &&
-        all(abs(scaled - round(scaled)) <= 1e-12 * scaled)) {
+        all(abs(scaled - round(scaled)) <= 8 * .Machine$double.eps * scaled)) {
       return(list(weights = round(scaled), step = min(a) / m))
     }
   }

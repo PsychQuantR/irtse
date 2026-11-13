@@ -2,6 +2,19 @@
 
 Unreleased development version.
 
+* Numerical range and root accuracy: retain small-logit odd cumulants and
+  saturated score tails, compute information independently of higher cumulants,
+  and use log scales for extreme abilities and discriminations. Law-based
+  calculations and diagnostic zero searches use shifted design coordinates.
+  Exact opposite item pairs cancel before summation; unresolved cancellation
+  stops with "not resolved". WLE root counts include function extrema found
+  through derivative sign changes and searches at sampled derivative extrema.
+  The lattice tolerance now absorbs only double representation error, selection
+  and its exact risk use the same coefficients, and a no-choice atom makes the
+  selection risk undefined even when its probability underflows. Documentation
+  states the numerical and root-search limits and the compact-set scope of the
+  provisional rule.
+
 * `se_info()`: information-based standard error at an ability estimate.
 * `se_boot()`: exact parametric-bootstrap standard error, by exact enumeration
   of the law of the sufficient statistic (lattice convolution for equal or

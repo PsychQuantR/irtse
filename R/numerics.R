@@ -28,59 +28,115 @@ log_sum <- function(x) {
   largest + log(sum(exp(x - largest)))
 }
 
-signed_log_mean <- function(log_terms, factors) {
+unresolved_error <- function(what) {
+  stop(paste(what, "is not resolved in double precision."), call. = FALSE)
+}
+
+signed_log_mean <- function(log_terms, factors, what = "coefficient polynomial",
+                            zero_if_unresolved = FALSE) {
   keep <- factors != 0
   if (!any(keep)) return(c(sign = 0, log_abs = -Inf))
   logs <- log_terms[keep] + log(abs(factors[keep]))
-  signs <- sign(factors[keep])
-  # Cancel equal opposite terms before exponentiation, so a tiny remaining
-  # term is not rounded away between large symmetric contributions.
-  if (any(signs > 0) && any(signs < 0)) {
-    unique_logs <- unique(logs)
-    signs <- as.vector(rowsum(signs, match(logs, unique_logs), reorder = FALSE))
-    logs <- unique_logs + log(abs(signs))
-    keep <- signs != 0
-    logs <- logs[keep]
-    signs <- sign(signs[keep])
-  }
-  if (!length(logs)) return(c(sign = 0, log_abs = -Inf))
   largest <- max(logs)
-  if (!is.finite(largest)) representation_error("design average")
-  total <- sum(signs * exp(logs - largest))
+  if (!is.finite(largest)) representation_error(what)
+  total <- sum(sign(factors[keep]) * exp(logs - largest))
+  if (total == 0) {
+    if (zero_if_unresolved) return(c(sign = 0, log_abs = -Inf))
+    unresolved_error(what)
+  }
   c(sign = sign(total), log_abs = largest + log(abs(total)) - log(length(factors)))
 }
 
-# One source for information, cumulants and discrimination-scaled k_r / k_2.
-# Scaling a by exp(log_scale) keeps the coefficient polynomials bounded.
-# The final powers of a and k2 are restored together on the log scale.
-design_ratios <- function(a, b, theta) {
+log_information <- function(a, b, theta) {
   eta <- a * (theta - b)
   log_u <- plogis(eta, log.p = TRUE) + plogis(-eta, log.p = TRUE)
+  log_weights <- 2 * log(a) + log_u
+  log_k2 <- log_sum(log_weights) - log(length(a))
+  if (!is.finite(log_k2)) representation_error("information")
+  list(eta = eta, log_u = log_u, log_weights = log_weights, log_k2 = log_k2)
+}
+
+odd_unpaired <- function(a, eta) {
+  keep <- eta != 0
+  if (!any(eta > 0) || !any(eta < 0)) return(keep)
+  ordered <- order(a, abs(eta))
+  left <- ordered[-length(ordered)]
+  right <- ordered[-1L]
+  groups <- cumsum(c(TRUE, a[left] != a[right] | abs(eta[left]) != abs(eta[right])))
+  for (indices in split(ordered, groups)) {
+    positive <- indices[eta[indices] > 0]
+    negative <- indices[eta[indices] < 0]
+    count <- min(length(positive), length(negative))
+    if (count) keep[c(positive[seq_len(count)], negative[seq_len(count)])] <- FALSE
+  }
+  keep
+}
+
+scaled_design_mean <- function(r, log_a, log_u, factors, keep,
+                               zero_if_unresolved = FALSE) {
+  n <- length(factors)
+  keep <- keep & factors != 0
+  if (!any(keep)) return(c(sign = 0, log_abs = -Inf))
+  log_a <- log_a[keep]
+  log_u <- log_u[keep]
+  factors <- factors[keep]
+  item_logs <- log_u + log(abs(factors))
+  anchor <- which.max(r * log_a + item_logs)
+  relative_a <- r * (log_a - log_a[[anchor]])
+  exponent <- relative_a - item_logs[[anchor]]
+  # Multiply u and f before scaling; a common large log(a) must not erase
+  # differences between these item terms. Fall back to split log differences
+  # only where the separate factors cannot be represented.
+  uf <- exp(log_u) * factors
+  safe <- abs(uf) >= .Machine$double.xmin &
+    exponent < log(.Machine$double.xmax)
+  terms <- numeric(length(factors))
+  terms[safe] <- exp(exponent[safe]) * uf[safe]
+  terms[!safe] <- sign(factors[!safe]) * exp(relative_a[!safe] +
+    (log_u[!safe] - log_u[[anchor]]) +
+    (log(abs(factors[!safe])) - log(abs(factors[[anchor]]))))
+  total <- sum(terms)
+  if (total == 0) {
+    if (zero_if_unresolved) return(c(sign = 0, log_abs = -Inf))
+    unresolved_error(paste0("design average k", r))
+  }
+  c(sign = sign(total), log_abs = r * log_a[[anchor]] +
+      item_logs[[anchor]] + log(abs(total)) - log(n))
+}
+
+# Information has one implementation, independent of the higher cumulants.
+# Ratios are scaled by a weighted discrimination to keep polynomials bounded.
+# zero_if_unresolved is for the zero search of se_diagnostic() only: there an
+# average or factor that is not resolved at an ability is a zero of it.
+design_ratios <- function(a, b, theta, zero_if_unresolved = FALSE) {
+  information <- log_information(a, b, theta)
+  log_u <- information$log_u
   u <- exp(log_u)
-  s <- plogis(-eta) - plogis(eta)
-  factors <- list(rep(1, length(a)), s, 1 - 6 * u, s * (1 - 12 * u),
+  s <- -tanh(information$eta / 2)
+  factors <- list(s, 1 - 6 * u, s * (1 - 12 * u),
                   1 - 30 * u + 120 * u^2, s * (1 - 60 * u + 360 * u^2))
   log_a <- log(a)
-  log_weights <- 2 * log_a + log_u
-  largest <- max(log_weights)
-  if (!is.finite(largest)) representation_error("information")
-  relative <- log_weights - largest
-  log_total <- log_sum(relative)
-  # The fifth weighted moment of a bounds every scaled ratio through k7.
-  # A completely saturated item therefore cannot set the working scale.
-  log_scale <- (log_sum(relative + 5 * log_a) - log_total) / 5
-  averages <- vapply(2:7, function(r) {
-    signed_log_mean(r * log_a + log_u, factors[[r - 1L]])
-  }, numeric(2))
-  log_k2 <- averages["log_abs", 1L]
-  if (!is.finite(log_k2)) representation_error("information")
+  relative <- information$log_weights - max(information$log_weights)
+  log_scale <- (log_sum(relative + 5 * log_a) - log_sum(relative)) / 5
+  unpaired <- odd_unpaired(a, information$eta)
+  averages <- cbind(c(sign = 1, log_abs = information$log_k2),
+    vapply(3:7, function(r) {
+      scaled_design_mean(r, log_a, log_u, factors[[r - 2L]],
+                         if (r %% 2) unpaired else rep(TRUE, length(a)),
+                         zero_if_unresolved)
+    }, numeric(2)))
   ratios <- vapply(2:7, function(r) {
-    average <- signed_log_mean(relative + (r - 2) * (log_a - log_scale),
-                               factors[[r - 1L]])
-    exp_value(average[["log_abs"]] - log_total + log(length(a)),
-              average[["sign"]], "cumulant ratio")
+    exp_value(averages["log_abs", r - 1L] - information$log_k2 -
+                (r - 2) * log_scale, averages["sign", r - 1L], "cumulant ratio")
   }, numeric(1))
   names(ratios) <- paste0("k", 2:7)
-  list(ratios = finite_value(ratios, "cumulant ratios"), log_k2 = log_k2,
-       log_scale = log_scale, averages = averages)
+  list(ratios = finite_value(ratios, "cumulant ratios"),
+       log_k2 = information$log_k2, log_scale = log_scale, averages = averages)
+}
+
+reference_coordinates <- function(b, theta) {
+  reference <- finite_value(min(b) + (max(b) - min(b)) / 2, "reference point")
+  list(b = finite_value(b - reference, "shifted difficulties"),
+       theta = finite_value(theta - reference, "shifted ability"),
+       reference = reference)
 }

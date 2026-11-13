@@ -6,30 +6,30 @@
 #' @param estimator Required: exactly `"MLE"` or `"WLE"`.
 #' @return The numeric coefficient Delta_2, based on design averages.
 #'   A single item is valid; no response enumeration is needed.
-#' @details
-#' Cumulant ratios and log information avoid underflow or overflow in powers.
-#' A result outside the range of double precision stops with an error containing
-#' `representable`. Exact zero coefficients remain zero.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' delta2(1, 0, -1, "MLE")
 delta2 <- function(a, b, theta, estimator) {
   validate_design(a, b, theta)
   validate_estimator(estimator)
-  design <- design_ratios(a, b, theta)
+  delta2_from_ratios(design_ratios(a, b, theta), estimator)
+}
+
+delta2_from_ratios <- function(design, estimator) {
   polynomial <- delta2_polynomial(design$ratios, estimator)
   exp_value(polynomial[["log_abs"]] - log(8) + 4 * design$log_scale -
               3 * design$log_k2, polynomial[["sign"]], "Delta_2")
 }
 
-ratio_factors <- function(r, estimator) {
+ratio_factors <- function(r, estimator, zero_if_unresolved = FALSE) {
   powers <- if (estimator == "MLE") {
     rbind(c(3, 0, 0, 0, 0), c(1, 1, 0, 0, 0), c(0, 0, 1, 0, 0))
   } else {
     rbind(c(1, 1, 0, 0, 0), c(3, 0, 0, 0, 0))
   }
   coefficients <- if (estimator == "MLE") c(-35, 30, -4) else c(5, -8)
-  second <- polynomial_log(r, powers, coefficients)
+  second <- polynomial_log(r, powers, coefficients, zero_if_unresolved)
   # Signs are positive rescalings of the factors away from their zeros.
   c(sign(r[["k3"]]), second[["sign"]])
 }
@@ -43,10 +43,7 @@ ratio_factors <- function(r, estimator) {
 #' @return The numeric coefficient Delta_3 for the MLE. For the WLE,
 #'   `NA_real_` and a message stating that the coefficient is unavailable.
 #'   A single item is valid; no response enumeration is needed.
-#' @details
-#' Cumulant ratios and log information avoid underflow or overflow in powers.
-#' A result outside the range of double precision stops with an error containing
-#' `representable`. Exact zero coefficients remain zero.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' delta3(1, 0, 0, "MLE")
@@ -57,19 +54,22 @@ delta3 <- function(a, b, theta, estimator) {
     message("No third-order coefficient is available for the WLE.")
     return(NA_real_)
   }
-  design <- design_ratios(a, b, theta)
+  delta3_from_ratios(design_ratios(a, b, theta))
+}
+
+delta3_from_ratios <- function(design) {
   polynomial <- delta3_polynomial(design$ratios)
   exp_value(polynomial[["log_abs"]] - log(768) + 6 * design$log_scale -
               4 * design$log_k2, -polynomial[["sign"]], "Delta_3")
 }
 
-polynomial_log <- function(r, powers, coefficients) {
+polynomial_log <- function(r, powers, coefficients, zero_if_unresolved = FALSE) {
   r <- r[paste0("k", 3:7)]
   logs <- log(abs(r))
   logs[r == 0] <- 0
   term_logs <- as.vector(powers %*% logs) + log(abs(coefficients))
   signs <- sign(coefficients) * apply(powers, 1L, function(p) prod(sign(r)^p))
-  value <- signed_log_mean(term_logs, signs)
+  value <- signed_log_mean(term_logs, signs, zero_if_unresolved = zero_if_unresolved)
   value[["log_abs"]] <- value[["log_abs"]] + log(length(coefficients))
   value
 }

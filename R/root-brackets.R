@@ -15,11 +15,12 @@ root_brackets <- function(T, a, b, estimator, interval) {
   grid <- wle_grid(a, b, interval)
   derivatives <- grid_equation(grid, a, b, derivative = TRUE)
   extrema <- which(sign(derivatives[-length(grid)]) * sign(derivatives[-1L]) < 0)
+  roots <- derivative_extrema(grid, derivatives, a, b)
   if (length(extrema)) {
-    roots <- refine_roots(rep(0, length(extrema)), grid[extrema],
-                          grid[extrema + 1L], a, b, estimator, derivative = TRUE)
-    grid <- sort(unique(c(grid, roots)))
+    roots <- c(roots, refine_roots(rep(0, length(extrema)), grid[extrema],
+                          grid[extrema + 1L], a, b, estimator, derivative = TRUE))
   }
+  grid <- sort(unique(c(grid, roots)))
   brackets <- vapply(T, function(total) {
     f <- grid_equation(grid, a, b, T = total)
     hits <- which(f == 0)
@@ -56,4 +57,38 @@ grid_equation <- function(grid, a, b, T = 0, derivative = FALSE) {
     equation <- estimate_equation(grid[indices], a, b, "WLE", T)
     if (derivative) equation$derivative else equation$value
   }), use.names = FALSE)
+}
+
+sampled_extrema <- function(values) {
+  middle <- seq.int(2L, length(values) - 1L)
+  left <- values[middle - 1L]
+  right <- values[middle + 1L]
+  here <- values[middle]
+  maxima <- here >= left & here >= right & (here > left | here > right)
+  minima <- here <= left & here <= right & (here < left | here < right)
+  list(indices = middle[maxima | minima], maximum = maxima[maxima | minima])
+}
+
+derivative_extrema <- function(grid, derivatives, a, b) {
+  candidates <- sampled_extrema(derivatives)
+  derivative <- function(t) estimate_equation(t, a, b, "WLE")$derivative
+  roots <- numeric()
+  for (j in seq_along(candidates$indices)) {
+    i <- candidates$indices[[j]]
+    neighbours <- grid[c(i - 1L, i + 1L)]
+    extreme <- stats::optimize(derivative, neighbours,
+      maximum = candidates$maximum[[j]],
+      tol = sqrt(.Machine$double.eps) * diff(neighbours))
+    point <- extreme[[1L]]
+    if (extreme$objective != 0 &&
+        sign(extreme$objective) == sign(derivatives[[i]])) next
+    opposite <- sign(extreme$objective) * sign(derivatives[c(i - 1L, i + 1L)]) < 0
+    if (any(opposite)) {
+      ends <- neighbours[opposite]
+      roots <- c(roots, refine_roots(rep(0, length(ends)), pmin(point, ends),
+        pmax(point, ends), a, b, "WLE", derivative = TRUE))
+    }
+    if (extreme$objective == 0) roots <- c(roots, point)
+  }
+  roots
 }

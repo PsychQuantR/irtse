@@ -23,11 +23,21 @@ Information-based standard error
 \details{
 Item probabilities are computed as \code{P = plogis(eta)} and \code{Q = plogis(-eta)},
 where \code{eta = a * (theta - b)}. Information is accumulated on the log scale.
-Numerical computations use log scales and normalised cumulant ratios where
-needed. A result outside the range of double precision stops with an error
-containing \code{representable}, rather than returning a non-finite value or
-silently underflowing to zero.
 }
+\section{Numerical accuracy}{
+
+Results depend on \code{theta} and \code{b} only through \code{a * (theta - b)} computed in
+double precision; computations using the law of T and diagnostic zero searches
+use coordinates relative to the midpoint of the difficulties.
+A design average whose nonzero terms cancel to zero after rounding stops with
+\verb{not resolved}; accuracy degrades with cancellation between items and near
+the zeros of a coefficient.
+Log scales and normalised cumulant ratios avoid intermediate overflow and
+underflow, while a nonzero result outside double precision stops with
+\code{representable} (except underflowed probabilities in \code{risk_diff()}'s \code{p_select},
+which are returned as zero).
+}
+
 \examples{
 se_info(rep(1, 6), rep(0, 6), 0)
 }

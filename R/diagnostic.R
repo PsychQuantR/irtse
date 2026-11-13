@@ -26,12 +26,7 @@
 #'
 #' No estimator-specific response law is used, so no enumeration limit applies
 #' and a single item is valid.
-#' Numerical computations use log scales and normalised cumulant ratios where
-#' needed. A result outside the range of double precision stops with an error
-#' containing `representable`, rather than returning a non-finite value or
-#' silently underflowing to zero. This includes a Delta_2 whose sign is
-#' determined but whose value is out of range: the function returns the
-#' coefficient, so it does not report a sign or a choice without it.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' se_diagnostic(rep(1, 6), rep(0, 6), -0.5, "MLE")
@@ -41,14 +36,17 @@ se_diagnostic <- function(a, b, theta, estimator) {
   d2 <- delta2(a, b, theta, estimator)
   d3 <- if (estimator == "MLE") delta3(a, b, theta, estimator) else NA_real_
   info <- se_info(a, b, theta)
-  nearest <- nearest_coefficient_zero(a, b, theta, estimator, info)
+  coordinates <- reference_coordinates(b, theta)
+  nearest <- nearest_coefficient_zero(a, coordinates$b, coordinates$theta,
+                                      estimator, info)
   list(delta2 = d2, delta3 = d3, sign_delta2 = as.double(sign(d2)),
-       se_info = info, nearest_zero = nearest,
-       zero_distance_se = abs(nearest - theta) / info)
+       se_info = info, nearest_zero = nearest + coordinates$reference,
+       zero_distance_se = abs(nearest - coordinates$theta) / info)
 }
 
 coefficient_factors <- function(a, b, theta, estimator) {
-  ratio_factors(design_ratios(a, b, theta)$ratios, estimator)
+  ratio_factors(design_ratios(a, b, theta, zero_if_unresolved = TRUE)$ratios,
+                estimator, zero_if_unresolved = TRUE)
 }
 
 factor_zeros <- function(grid, values, f) {

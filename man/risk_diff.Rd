@@ -26,7 +26,8 @@ each SE by \code{sqrt(J)}; and \code{diff}, their difference. \code{diff} is not
 by J^2. When \code{margin} is supplied, append \code{smse_select}, the scaled risk
 of the selection rule, and \code{p_select}, a numeric vector named \code{info},
 \code{boot}, \code{none} giving the probabilities of those choices. If \code{none} has
-positive probability, \code{smse_select} is \code{NA_real_}.
+positive probability, \code{smse_select} is \code{NA_real_}, including when that
+probability underflows to zero in \code{p_select}. Every atom is checked.
 }
 \description{
 Exact finite-length scaled risks
@@ -42,14 +43,25 @@ this function uses scaled reports, multiplied by \code{sqrt(J)}.
 Exact enumeration stops above 2000 atoms or lattice width 1e6. The package
 stops instead of approximating. Missing or non-unique roots cause an error
 naming T. The optional rule is provisional; see \code{\link[=se_select]{se_select()}} for its scope.
-WLE roots are counted on a grid together with local extrema located by
-derivative sign changes between grid points. A pair of extrema inside one
-grid cell can still be missed; this count does not certify global uniqueness.
-Numerical computations use log scales and normalised cumulant ratios where
-needed. A result outside the range of double precision stops with an error
-containing \code{representable}, rather than returning a non-finite value or
-silently underflowing to zero.
+WLE roots are counted on a grid and at function extrema located by derivative
+sign changes and searches at sampled local extrema of the derivative.
+Features narrower than the grid spacing can still be missed; this count
+does not certify global uniqueness.
 }
+\section{Numerical accuracy}{
+
+Results depend on \code{theta} and \code{b} only through \code{a * (theta - b)} computed in
+double precision; computations using the law of T and diagnostic zero searches
+use coordinates relative to the midpoint of the difficulties.
+A design average whose nonzero terms cancel to zero after rounding stops with
+\verb{not resolved}; accuracy degrades with cancellation between items and near
+the zeros of a coefficient.
+Log scales and normalised cumulant ratios avoid intermediate overflow and
+underflow, while a nonzero result outside double precision stops with
+\code{representable} (except underflowed probabilities in \code{risk_diff()}'s \code{p_select},
+which are returned as zero).
+}
+
 \examples{
 risk_diff(rep(1, 4), rep(0, 4), 0, "MLE")
 }

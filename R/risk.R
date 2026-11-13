@@ -13,7 +13,8 @@
 #'   by J^2. When `margin` is supplied, append `smse_select`, the scaled risk
 #'   of the selection rule, and `p_select`, a numeric vector named `info`,
 #'   `boot`, `none` giving the probabilities of those choices. If `none` has
-#'   positive probability, `smse_select` is `NA_real_`.
+#'   positive probability, `smse_select` is `NA_real_`, including when that
+#'   probability underflows to zero in `p_select`. Every atom is checked.
 #' @details
 #' Both outer expectations and inner bootstrap variances are conditional on
 #' non-extreme responses for the MLE; the WLE includes every response. The MLE
@@ -25,13 +26,11 @@
 #' Exact enumeration stops above 2000 atoms or lattice width 1e6. The package
 #' stops instead of approximating. Missing or non-unique roots cause an error
 #' naming T. The optional rule is provisional; see [se_select()] for its scope.
-#' WLE roots are counted on a grid together with local extrema located by
-#' derivative sign changes between grid points. A pair of extrema inside one
-#' grid cell can still be missed; this count does not certify global uniqueness.
-#' Numerical computations use log scales and normalised cumulant ratios where
-#' needed. A result outside the range of double precision stops with an error
-#' containing `representable`, rather than returning a non-finite value or
-#' silently underflowing to zero.
+#' WLE roots are counted on a grid and at function extrema located by derivative
+#' sign changes and searches at sampled local extrema of the derivative.
+#' Features narrower than the grid spacing can still be missed; this count
+#' does not certify global uniqueness.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' risk_diff(rep(1, 4), rep(0, 4), 0, "MLE")
@@ -39,6 +38,9 @@ risk_diff <- function(a, b, theta, estimator, margin) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
   if (!missing(margin)) validate_margin(margin)
+  coordinates <- reference_coordinates(b, theta)
+  b <- coordinates$b
+  theta <- coordinates$theta
   plan <- atom_plan(a, estimator, 2000, "risk_diff()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
   reports <- scaled_reports(plan, estimates, a, b)
@@ -80,7 +82,7 @@ selection_risk <- function(a, b, estimates, estimator, margin, weights, A, B, h)
     sum(weights[choices == choice])
   }, numeric(1))
   report <- ifelse(choices == "info", A, B)
-  risk <- if (probabilities[["none"]] > 0) NA_real_ else {
+  risk <- if (any(choices == "none")) NA_real_ else {
     finite_value(sum(weights * (report - h)^2), "selection risk")
   }
   list(smse_select = risk, p_select = probabilities)

@@ -22,11 +22,20 @@ A single item is valid; no response enumeration is needed.
 \description{
 Second-order coefficient of the scaled risk difference
 }
-\details{
-Cumulant ratios and log information avoid underflow or overflow in powers.
-A result outside the range of double precision stops with an error containing
-\code{representable}. Exact zero coefficients remain zero.
+\section{Numerical accuracy}{
+
+Results depend on \code{theta} and \code{b} only through \code{a * (theta - b)} computed in
+double precision; computations using the law of T and diagnostic zero searches
+use coordinates relative to the midpoint of the difficulties.
+A design average whose nonzero terms cancel to zero after rounding stops with
+\verb{not resolved}; accuracy degrades with cancellation between items and near
+the zeros of a coefficient.
+Log scales and normalised cumulant ratios avoid intermediate overflow and
+underflow, while a nonzero result outside double precision stops with
+\code{representable} (except underflowed probabilities in \code{risk_diff()}'s \code{p_select},
+which are returned as zero).
 }
+
 \examples{
 delta2(1, 0, -1, "MLE")
 }

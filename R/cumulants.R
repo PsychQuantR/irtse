@@ -5,11 +5,7 @@
 #' @param theta Single finite ability, or ability estimate.
 #' @return A numeric vector named `k2`, ..., `k7`, with element r equal to
 #'   the mean of `a^r` times the rth Bernoulli cumulant. A single item is valid.
-#' @details
-#' Numerical computations use log scales and normalised cumulant ratios where
-#' needed. A result outside the range of double precision stops with an error
-#' containing `representable`, rather than returning a non-finite value or
-#' silently underflowing to zero.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' design_cumulants(1, 0, 0)

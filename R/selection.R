@@ -55,15 +55,11 @@
 #' Exact enumeration stops above 100000 atoms or lattice width 1e6; the package
 #' stops instead of approximating. The MLE requires at least two items. A missing
 #' or non-unique root causes an error naming T.
-#' WLE roots are counted on a grid together with local extrema located by
-#' derivative sign changes between grid points. A pair of extrema inside one
-#' grid cell can still be missed; this count does not certify global uniqueness.
-#' Numerical computations use log scales and normalised cumulant ratios where
-#' needed. A result outside the range of double precision stops with an error
-#' containing `representable`, rather than returning a non-finite value or
-#' silently underflowing to zero. This includes a Delta_2 whose sign is
-#' determined but whose value is out of range: the function returns the
-#' coefficient, so it does not report a sign or a choice without it.
+#' WLE roots are counted on a grid and at function extrema located by derivative
+#' sign changes and searches at sampled local extrema of the derivative.
+#' Features narrower than the grid spacing can still be missed; this count
+#' does not certify global uniqueness.
+#' @template numerical-accuracy
 #' @export
 #' @examples
 #' se_select(rep(1, 4), rep(0, 4), 0, "MLE", margin = 0)
@@ -71,10 +67,14 @@ se_select <- function(a, b, theta, estimator, margin) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
   validate_margin(margin)
+  coordinates <- reference_coordinates(b, theta)
+  b <- coordinates$b
+  theta <- coordinates$theta
   info <- se_info(a, b, theta)
-  boot <- se_boot(a, b, theta, estimator)
-  d2 <- delta2(a, b, theta, estimator)
-  d3 <- if (estimator == "MLE") delta3(a, b, theta, estimator) else NA_real_
+  boot <- bootstrap_se(a, b, theta, estimator)
+  coefficients <- rule_coefficients(a, b, theta, estimator)
+  d2 <- coefficients$delta2
+  d3 <- coefficients$delta3
   decision <- selection_decision(d2, d3, estimator, margin)
   selected <- switch(decision$choice, info = info, boot = boot, none = NA_real_)
   list(choice = decision$choice, se = selected, se_info = info, se_boot = boot,
