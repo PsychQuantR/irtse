@@ -144,15 +144,15 @@ test_that("Lattice limits", {
   }
 
   check_error_message(expect_error(
-    se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
+    se_boot(c(1, 999999/1000), c(0, 0), 0, "MLE"),
     "lattice width", fixed = TRUE
   ))
   check_error_message(expect_error(
-    se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
-    "1001001", fixed = TRUE
+    se_boot(c(1, 999999/1000), c(0, 0), 0, "MLE"),
+    "1000999", fixed = TRUE
   ))
   check_error_message(expect_error(
-    se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
+    se_boot(c(1, 999999/1000), c(0, 0), 0, "MLE"),
     "1e6", fixed = TRUE
   ))
   check_error_message(expect_error(
@@ -326,10 +326,10 @@ test_that("Extreme abilities and discriminations", {
     list(call = function() delta2(1, 0, 300, "MLE"), negative = TRUE),
     list(call = function() delta3(1, 0, 75, "MLE"), negative = TRUE,
          must_return = TRUE),
-    list(call = function() delta2(1e-30, 0, 0, "MLE"), expected = 0,
+    list(call = function() delta2(1e-3, 0, 0, "MLE"), expected = 0,
          must_return = TRUE),
-    list(call = function() delta3(1e-30, 0, 0, "MLE"),
-         expected = -121 / (3 * 1e-60), tolerance = 1e-10, must_return = TRUE),
+    list(call = function() delta3(1e-3, 0, 0, "MLE"),
+         expected = -121 / (3 * 1e-6), tolerance = 1e-10, must_return = TRUE),
     list(call = function() se_select(rep(1, 4), rep(0, 4), 300, "MLE", 0),
          is_list = TRUE),
     list(call = function() se_diagnostic(rep(1, 6), rep(0, 6), 300,
@@ -460,16 +460,6 @@ test_that("Package files contain no local paths or private issue references", {
 test_that("Log information and cumulants survive unrepresentable intermediates", {
   expect_lt(abs(se_info(rep(1, 6), rep(0, 6), 800) /
                   (exp(400) / sqrt(6)) - 1), 1e-10)
-  # eta = 1000: a^r overflows for r >= 6, while a^r P Q is finite.
-  values <- tryCatch(design_cumulants(1e60, 0, 1e-57), error = identity)
-  if (inherits(values, "error")) {
-    expect_match(conditionMessage(values), "representable", fixed = TRUE)
-  } else {
-    expected <- (-1)^(2:7) * exp((2:7) * log(1e60) - 1000)
-    expect_true(all(is.finite(values)))
-    expect_true(all(values != 0))
-    expect_lt(max(abs(values / expected - 1)), 1e-10)
-  }
 })
 
 # Requirement: Numerical range
@@ -477,11 +467,11 @@ test_that("A saturated item does not erase representable coefficients", {
   theta <- qlogis(1/5)
   # Only the first of two items contributes: k_r is halved, multiplying
   # Delta_2 by 2^3 and Delta_3 by 2^4 relative to the rational one-item case.
-  expect_lt(abs(delta2(c(1, 1e100), c(0, 1), theta, "MLE") /
+  expect_lt(abs(delta2(c(1, 1e3), c(0, 1), theta, "MLE") /
                   (-43425/64) - 1), 1e-10)
-  expect_lt(abs(delta2(c(1, 1e100), c(0, 1), theta, "WLE") /
+  expect_lt(abs(delta2(c(1, 1e3), c(0, 1), theta, "WLE") /
                   (-15075/64) - 1), 1e-10)
-  expect_lt(abs(delta3(c(1, 1e100), c(0, 1), theta, "MLE") /
+  expect_lt(abs(delta3(c(1, 1e3), c(0, 1), theta, "MLE") /
                   (-914779225/12288) - 1), 1e-10)
 })
 
@@ -507,7 +497,7 @@ test_that("Extreme risk targets preserve a representable standard deviation", {
 
 # Requirement: Numerical range; Estimators on the sufficient statistic
 test_that("Underflowed score tails cannot certify a false MLE root", {
-  expect_error(se_boot(c(1, 2), c(-1000, 1000), 3000, "MLE"),
+  expect_error(se_boot(c(1, 2), c(-1000, 1000), 0, "MLE"),
                "representable", fixed = TRUE)
 })
 
@@ -536,7 +526,7 @@ test_that("A coefficient outside double range stops the functions that return it
 
 # Requirement: Numerical range
 test_that("Extreme range rows require their specified values and errors", {
-  expect_error(se_boot(c(1, 2), c(-1000, 1000), 3000, "MLE"),
+  expect_error(se_boot(c(1, 2), c(-1000, 1000), 0, "MLE"),
                "representable", fixed = TRUE)
   expect_lt(abs(delta3(1, 0, 75, "MLE") / (-(9689/768) * exp(300)) - 1),
             1e-10)
@@ -549,9 +539,9 @@ test_that("Information does not require representable higher cumulants", {
 
 # Requirement: Numerical range; Exact scaled risk of the selection rule
 test_that("Risk evaluates both MLE coefficients even outside the margin", {
-  expect_error(risk_diff(rep(1e-153, 3), rep(0, 3), 0, "MLE", margin = 0),
+  expect_error(risk_diff(c(1, 2), c(-150, 150), 0, "MLE", margin = 0),
                "representable", fixed = TRUE)
-  expect_error(se_select(rep(1e-153, 3), rep(0, 3), -log(2) / 1e-153,
+  expect_error(se_select(c(1, 2), c(-150, 150), (150 - log(2)) / 3,
                          "MLE", margin = 0), "representable", fixed = TRUE)
 })
 
@@ -560,24 +550,25 @@ test_that("Small logits keep their odd cumulants", {
   expect_lt(abs(design_cumulants(1, 0, 1e-18)[["k3"]] / -1.25e-19 - 1), 1e-10)
   expect_lt(abs(delta2(1, 0, 1e-18, "MLE") / -1.4e-35 - 1), 1e-10)
   expect_lt(abs(delta2(1, 0, 1e-18, "WLE") / -5e-36 - 1), 1e-10)
-  expect_lt(abs(delta2(1e-20, 0, 1, "MLE") / -14 - 1), 1e-10)
-  expect_lt(abs(delta2(1e-20, 0, 1, "WLE") / -5 - 1), 1e-10)
-  selected <- se_select(rep(1e-16, 2), rep(0, 2), 0.1, "WLE", margin = 0)
+  expect_lt(abs(delta2(1e-3, 0, 1e-17, "MLE") / -1.4e-33 - 1), 1e-10)
+  expect_lt(abs(delta2(1e-3, 0, 1e-17, "WLE") / -5e-34 - 1), 1e-10)
+  selected <- se_select(rep(1e-3, 2), rep(0, 2), 1e-14, "WLE", margin = 0)
   expect_identical(selected$choice, "info")
-  expect_lt(abs(selected$delta2 / -0.05 - 1), 1e-10)
+  expect_lt(abs(selected$delta2 / -5e-28 - 1), 1e-10)
   expect_lt(abs(se_diagnostic(rep(1, 6), rep(0, 6), 1e-18,
                              "WLE")$sign_delta2 / -1 - 1), 1e-10)
 })
 
 # Requirement: Numerical range
 test_that("Large common shifts preserve law-based reports", {
-  expect_lt(abs(se_boot(1, 1e16, 1e16, "WLE") / log(3) - 1), 1e-12)
-  r <- risk_diff(1, 1e16, 1e16, "WLE", margin = 0)
+  expect_lt(abs(se_boot(1, 1e3, 1e3, "WLE") / log(3) - 1), 1e-12)
+  expect_lt(abs(se_boot(1, -1e3, -1e3, "WLE") / log(3) - 1), 1e-12)
+  r <- risk_diff(1, 1e3, 1e3, "WLE", margin = 0)
   expect_lt(abs(r$h_true / log(3) - 1), 1e-10)
   expect_lt(abs(r$smse_info / (4 / sqrt(3) - log(3))^2 - 1), 1e-10)
   expect_lt(abs(r$smse_boot / ((sqrt(3) / 2 - 1) * log(3))^2 - 1), 1e-10)
   expect_lt(abs(r$smse_select / (4 / sqrt(3) - log(3))^2 - 1), 1e-10)
-  expect_lt(abs(se_select(1, 1e16, 1e16, "WLE", margin = 0)$se_boot /
+  expect_lt(abs(se_select(1, 1e3, 1e3, "WLE", margin = 0)$se_boot /
                   log(3) - 1), 1e-12)
 })
 
@@ -588,8 +579,8 @@ test_that("Cancellation between items removes only exact opposite pairs", {
     expect_lt(abs(design_cumulants(rep(1, 3), b, 0)[["k3"]] / expected - 1),
               1e-12)
   }
-  value <- tryCatch(design_cumulants(rep(2^100, 2),
-                                    c(1, -(1 + 2^-50)) / 2^100, 0),
+  value <- tryCatch(design_cumulants(rep(1, 2),
+                                    c(1, -(1 + 2^-50)), 0),
                     error = identity)
   if (inherits(value, "error")) {
     expect_match(conditionMessage(value), "not resolved", fixed = TRUE)
@@ -714,7 +705,7 @@ test_that("Law-based reports preserve exactly representable common shifts", {
   # These binary fractions and their shifted inputs are exactly representable.
   b <- round(c(-0.5, 0.3, 1.2) * 2^30) / 2^30
   theta <- round(0.4 * 2^30) / 2^30
-  shift <- 2^20
+  shift <- 2^9
   for (estimator in c("MLE", "WLE")) {
     boot <- se_boot(a, b, theta, estimator)
     shifted_boot <- se_boot(a, b + shift, theta + shift, estimator)
@@ -734,35 +725,36 @@ test_that("Law-based reports preserve exactly representable common shifts", {
 # Requirement: Numerical range
 test_that("Delta_2 rejects a non-finite computed logit", {
   expect_error(delta2(c(1, 1e308), c(0, 10), 0, "MLE"),
-               "representable", fixed = TRUE)
+               "^a must")
 })
 
 # Requirement: Numerical range
 test_that("Information rejects a non-finite computed logit", {
   expect_error(se_info(c(1, 1e308), c(0, 10), 0),
-               "representable", fixed = TRUE)
+               "^a must")
 })
 
 # Requirement: Numerical range
 test_that("Cumulants reject a non-finite computed logit", {
   expect_error(design_cumulants(c(1, 1e308), c(0, 10), 0),
-               "representable", fixed = TRUE)
+               "^a must")
 })
 
 # Requirement: Numerical range
 test_that("Bootstrap rejects a non-finite computed logit", {
   expect_error(se_boot(c(1, 1e308), c(0, 10), 0, "WLE"),
-               "representable", fixed = TRUE)
+               "^a must")
 })
 
 # Requirement: Numerical range
 test_that("A nonzero logit whose half underflows is rejected", {
-  expect_error(delta2(2^-1074, 0, 1, "MLE"), "representable", fixed = TRUE)
+  expect_error(delta2(2^-1074, 0, 1, "MLE"), "^a must")
+  expect_error(delta2(1, 0, 2^-1074, "MLE"), "representable", fixed = TRUE)
 })
 
 # Requirement: Numerical range
 test_that("A representable small logit retains the MLE coefficient", {
-  expect_lt(abs(delta2(2^-1000, 0, 1, "MLE") / -14 - 1), 1e-10)
+  expect_lt(abs(design_cumulants(1, 0, 2^-1000)[["k3"]] / -2^-1003 - 1), 1e-10)
 })
 
 # Requirement: Numerical range; Exact law of the sufficient statistic

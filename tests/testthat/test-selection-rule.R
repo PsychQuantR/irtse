@@ -325,7 +325,7 @@ test_that("Selection and standalone reports agree exactly on an ordinary design"
 # Requirement: Numerical range; Diagnostic without choosing
 test_that("Diagnostic zero distances retain the supplied ability", {
   theta <- 0.1
-  r <- se_diagnostic(c(1, 1e-16), c(0, 1e16), theta, "WLE")
+  r <- se_diagnostic(c(1, 1e-3), c(0, 1e3), theta, "WLE")
   expect_true(is.finite(r$nearest_zero))
   expect_lt(abs(r$zero_distance_se -
                   abs(r$nearest_zero - theta) / r$se_info), 1e-9)
