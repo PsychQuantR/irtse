@@ -643,6 +643,7 @@ test_that("All source files exclude local paths and private tracker references",
                 paste0("[A-Za-z]", ":", "\\\\"),
                 paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+"),
                 paste0("/", "issues", "/", "[0-9]+"))
+  patterns <- c(patterns, additional_local_path_patterns())
   bad <- vapply(paths, function(path) {
     bytes <- readBin(path, "raw", n = file.info(path)$size)
     any(vapply(patterns, function(pattern) length(grepRaw(pattern, bytes)) > 0L,
@@ -705,4 +706,92 @@ test_that("An unresolved average stops, and is a zero in the diagnostic search",
                "not resolved", fixed = TRUE)
   factors <- irtse:::coefficient_factors(rep(1, 2), c(-1, 1 + 2^-52), 0, "MLE")
   expect_identical(factors[[1L]], 0)
+})
+
+# Requirement: Numerical range; Exact law of the sufficient statistic
+test_that("Law-based reports preserve exactly representable common shifts", {
+  a <- c(1, 2, 1.5)
+  # These binary fractions and their shifted inputs are exactly representable.
+  b <- round(c(-0.5, 0.3, 1.2) * 2^30) / 2^30
+  theta <- round(0.4 * 2^30) / 2^30
+  shift <- 2^20
+  for (estimator in c("MLE", "WLE")) {
+    boot <- se_boot(a, b, theta, estimator)
+    shifted_boot <- se_boot(a, b + shift, theta + shift, estimator)
+    expect_lt(abs(shifted_boot / boot - 1), 1e-12)
+    risk <- risk_diff(a, b, theta, estimator)
+    shifted_risk <- risk_diff(a, b + shift, theta + shift, estimator)
+    for (field in c("J", "h_true", "smse_info", "smse_boot", "diff")) {
+      expect_lt(abs(shifted_risk[[field]] / risk[[field]] - 1), 1e-12)
+    }
+    selected <- se_select(a, b, theta, estimator, margin = 0)
+    shifted_selected <- se_select(a, b + shift, theta + shift, estimator,
+                                  margin = 0)
+    expect_lt(abs(shifted_selected$se_boot / selected$se_boot - 1), 1e-12)
+  }
+})
+
+# Requirement: Numerical range
+test_that("Delta_2 rejects a non-finite computed logit", {
+  expect_error(delta2(c(1, 1e308), c(0, 10), 0, "MLE"),
+               "representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+test_that("Information rejects a non-finite computed logit", {
+  expect_error(se_info(c(1, 1e308), c(0, 10), 0),
+               "representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+test_that("Cumulants reject a non-finite computed logit", {
+  expect_error(design_cumulants(c(1, 1e308), c(0, 10), 0),
+               "representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+test_that("Bootstrap rejects a non-finite computed logit", {
+  expect_error(se_boot(c(1, 1e308), c(0, 10), 0, "WLE"),
+               "representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+test_that("A nonzero logit whose half underflows is rejected", {
+  expect_error(delta2(2^-1074, 0, 1, "MLE"), "representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+test_that("A representable small logit retains the MLE coefficient", {
+  expect_lt(abs(delta2(2^-1000, 0, 1, "MLE") / -14 - 1), 1e-10)
+})
+
+# Requirement: Numerical range; Exact law of the sufficient statistic
+test_that("Discriminations inside the lattice tolerance identify one design", {
+  exact <- se_boot(c(1, 1), c(0, 0), 0, "MLE")
+  expect_identical(exact, 0)
+  expect_identical(se_boot(c(1, 1 + 2^-50), c(0, 0), 0, "MLE"), exact)
+})
+
+# Requirement: Input validation at the boundary
+test_that("Complex inputs name the invalid argument", {
+  expect_error(se_info(1 + 1i, 0, 0), "^a must")
+  expect_error(se_info(1, 1i, 0), "^b must")
+  expect_error(se_info(1, 0, 1i), "^theta must")
+  expect_error(se_select(c(1, 1), c(0, 0), 0, "WLE", margin = 1 + 1i),
+               "^margin must")
+})
+
+# Requirement: Package metadata and documentation
+test_that("Local path patterns catch POSIX and forward-slash drive paths", {
+  forbidden <- c(paste0("/", "tmp", "/x.R"),
+                 paste0("/", "var", "/folders/x"),
+                 paste0("/", "private", "/x"),
+                 paste0("C", ":", "/work/x.R"))
+  matches <- function(text) {
+    any(vapply(additional_local_path_patterns(), function(pattern) {
+      length(grepRaw(pattern, charToRaw(text))) > 0L
+    }, logical(1)))
+  }
+  for (text in forbidden) expect_true(matches(text))
+  expect_false(matches("https://example.org/a"))
 })

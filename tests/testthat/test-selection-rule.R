@@ -292,3 +292,50 @@ test_that("No zero in the window", {
   expect_true(is.na(diagnostic$zero_distance_se))
   expect_type(diagnostic$zero_distance_se, "double")
 })
+
+# Requirement: Numerical range
+test_that("Selection preserves the logits at the supplied ability", {
+  a <- c(1, 1)
+  b <- c(0, 80)
+  theta <- 16 * exp(-80)
+  selected <- se_select(a, b, theta, "MLE", margin = 0)
+  expect_identical(selected$delta2, delta2(a, b, theta, "MLE"))
+  expect_identical(selected$delta3, delta3(a, b, theta, "MLE"))
+  expect_identical(selected$se_info, se_info(a, b, theta))
+  expect_lt(abs(selected$delta2 / (5120 * exp(-160)) - 1), 1e-6)
+  expect_identical(selected$choice, "boot")
+})
+
+# Requirement: Numerical range
+test_that("Selection and standalone reports agree exactly on an ordinary design", {
+  a <- c(1, 2, 1.5)
+  b <- c(-0.5, 0.3, 1.2)
+  theta <- 0.4
+  for (estimator in c("MLE", "WLE")) {
+    selected <- se_select(a, b, theta, estimator, margin = 0)
+    expect_identical(selected$se_info, se_info(a, b, theta))
+    expect_identical(selected$delta2, delta2(a, b, theta, estimator))
+    expected_d3 <- if (estimator == "MLE") delta3(a, b, theta, estimator) else {
+      suppressMessages(delta3(a, b, theta, estimator))
+    }
+    expect_identical(selected$delta3, expected_d3)
+  }
+})
+
+# Requirement: Numerical range; Diagnostic without choosing
+test_that("Diagnostic zero distances retain the supplied ability", {
+  theta <- 0.1
+  r <- se_diagnostic(c(1, 1e-16), c(0, 1e16), theta, "WLE")
+  expect_true(is.finite(r$nearest_zero))
+  expect_lt(abs(r$zero_distance_se -
+                  abs(r$nearest_zero - theta) / r$se_info), 1e-9)
+})
+
+# Requirement: Numerical range; Diagnostic without choosing
+test_that("Diagnostic offset search retains the known Rasch zero and distance", {
+  theta <- qlogis(3/10)
+  r <- se_diagnostic(rep(1, 6), rep(0, 6), theta, "MLE")
+  expect_lt(abs(r$nearest_zero - 0), 1e-12)
+  expect_lt(abs(r$zero_distance_se / (abs(qlogis(3/10)) / r$se_info) - 1),
+            1e-12)
+})
