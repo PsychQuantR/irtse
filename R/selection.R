@@ -67,12 +67,10 @@ se_select <- function(a, b, theta, estimator, margin) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
   validate_margin(margin)
-  coordinates <- reference_coordinates(b, theta)
-  b <- coordinates$b
-  theta <- coordinates$theta
-  info <- se_info(a, b, theta)
-  boot <- bootstrap_se(a, b, theta, estimator)
-  coefficients <- rule_coefficients(a, b, theta, estimator)
+  eta <- checked_logits(a * (theta - b))
+  info <- information_se(a, eta)
+  boot <- bootstrap_se(a, reference_coordinates(b)$b, eta, estimator)
+  coefficients <- rule_coefficients(a, eta, estimator)
   d2 <- coefficients$delta2
   d3 <- coefficients$delta3
   decision <- selection_decision(d2, d3, estimator, margin)

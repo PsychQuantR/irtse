@@ -22,13 +22,13 @@ selection_decision <- function(d2, d3, estimator, margin) {
                         if (negative) "information" else "bootstrap"))
 }
 
-rule_coefficients <- function(a, b, theta, estimator) {
-  design <- design_ratios(a, b, theta)
+rule_coefficients <- function(a, eta, estimator) {
+  design <- design_ratios(a, eta)
   list(delta2 = delta2_from_ratios(design, estimator),
        delta3 = if (estimator == "MLE") delta3_from_ratios(design) else NA_real_)
 }
 
-selection_at <- function(a, b, theta, estimator, margin) {
-  coefficients <- rule_coefficients(a, b, theta, estimator)
+selection_at <- function(a, eta, estimator, margin) {
+  coefficients <- rule_coefficients(a, eta, estimator)
   selection_decision(coefficients$delta2, coefficients$delta3, estimator, margin)$choice
 }

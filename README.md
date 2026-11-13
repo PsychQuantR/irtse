@@ -45,25 +45,31 @@ diagnostic built on them.
 All computations are in double precision; the package says what it computes
 rather than promising the exact value for every input.
 
-- Results depend on `theta` and `b` only through the logits `a * (theta - b)`
-  as computed in double precision. `se_boot()`, `risk_diff()` and `se_select()`
-  work in coordinates relative to the midpoint of the difficulties, so a common
-  shift of every `b` and of `theta` changes the results only through the
-  rounding of the shifted inputs.
+- At the supplied ability, information, coefficients and the law of T use the
+  logits `a * (theta - b)` computed from the supplied inputs in double precision.
+  `se_boot()`, `risk_diff()` and `se_select()` keep estimates as offsets from the
+  midpoint of the difficulties, so a common shift of every `b` and of `theta`
+  changes the results only through rounding of the shifted inputs.
+  Diagnostic zero searches use offsets from the supplied `theta`.
 - A design average (`k3`, ..., `k7`) is a sum over items and can lose accuracy
   to cancellation between items: its relative error is of the order of 1e-15
   times the sum of the absolute terms divided by the absolute sum. Items that
   cancel exactly (same discrimination, opposite logits) are removed first, so a
   symmetric design gives exactly 0. When the remaining terms sum to exactly 0,
-  the function stops with an error containing "not resolved". `delta2()` and
-  `delta3()` inherit this and lose further accuracy near their own zeros.
+  the function stops with an error containing "not resolved", except in the zero
+  search of `se_diagnostic()`, where an unresolved average counts as a zero.
+  Accuracy also depends on each item's cumulant polynomial near its zeros and
+  on the subtraction `theta - b`. `delta2()` and `delta3()` inherit these errors
+  and lose further accuracy near their own zeros.
 - A value outside the range of double precision stops with an error containing
   "representable"; the package does not return `Inf`, `NaN`, or 0 in place of
-  a non-zero value (the one exception: a probability in `p_select` below the
-  smallest positive double is returned as 0).
+  a non-zero value, except for a probability in `p_select` below the smallest
+  positive double or the lattice identification described below.
 - Discriminations are treated as commensurable only when their ratios are
   integers up to representation error (8 units in the last place), for example
   `c(0.1, 0.2, 0.3)`; otherwise every response pattern is its own atom.
+  Discriminations within this 8-ulp tolerance are identified with the commensurable
+  design, so merged totals can give an exactly zero bootstrap SE.
 - The WLE equation can have several roots. The package counts roots on a grid
   together with the extrema of the function that the grid reveals, and stops
   with an error naming T when the count is not one. The count is certified

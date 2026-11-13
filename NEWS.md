@@ -2,10 +2,12 @@
 
 Unreleased development version.
 
+* Preserve supplied-ability logits, search diagnostic zeros in offsets from theta, reject unrepresentable logits, and clarify accuracy and lattice identification.
+
 * Numerical range and root accuracy: retain small-logit odd cumulants and
   saturated score tails, compute information independently of higher cumulants,
   and use log scales for extreme abilities and discriminations. Law-based
-  calculations and diagnostic zero searches use shifted design coordinates.
+  calculations keep estimates in shifted design coordinates.
   Exact opposite item pairs cancel before summation; unresolved cancellation
   stops with "not resolved". WLE root counts include function extrema found
   through derivative sign changes and searches at sampled derivative extrema.

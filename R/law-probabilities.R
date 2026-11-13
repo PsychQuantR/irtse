@@ -19,14 +19,12 @@ pattern_probabilities <- function(patterns, log_p, log_q) {
   mass
 }
 
-atom_log_probabilities <- function(plan, a, b, theta) {
-  eta <- a * (theta - b)
-  log_p <- plogis(eta, log.p = TRUE)
-  log_q <- plogis(-eta, log.p = TRUE)
+atom_log_probabilities <- function(plan, eta) {
+  probabilities <- log_probabilities(eta)
   mass <- if (plan$type == "lattice") {
-    lattice_probabilities(plan$weights, log_p, log_q)[plan$keep]
+    lattice_probabilities(plan$weights, probabilities$p, probabilities$q)[plan$keep]
   } else {
-    pattern_probabilities(plan$patterns, log_p, log_q)
+    pattern_probabilities(plan$patterns, probabilities$p, probabilities$q)
   }
   total <- log_sum(mass)
   if (!is.finite(total)) representation_error("law of T at this theta")
@@ -34,11 +32,11 @@ atom_log_probabilities <- function(plan, a, b, theta) {
 }
 
 atom_probabilities <- function(plan, a, b, theta) {
-  exp(atom_log_probabilities(plan, a, b, theta))
+  exp(atom_log_probabilities(plan, a * (theta - b)))
 }
 
-law_sd <- function(plan, estimates, a, b, theta) {
-  weighted_sd(atom_log_probabilities(plan, a, b, theta), estimates)
+law_sd <- function(plan, estimates, eta) {
+  weighted_sd(atom_log_probabilities(plan, eta), estimates)
 }
 
 weighted_sd <- function(logs, estimates) {

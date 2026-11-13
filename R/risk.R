@@ -38,13 +38,12 @@ risk_diff <- function(a, b, theta, estimator, margin) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
   if (!missing(margin)) validate_margin(margin)
-  coordinates <- reference_coordinates(b, theta)
-  b <- coordinates$b
-  theta <- coordinates$theta
+  eta <- checked_logits(a * (theta - b))
+  b <- reference_coordinates(b)$b
   plan <- atom_plan(a, estimator, 2000, "risk_diff()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
   reports <- scaled_reports(plan, estimates, a, b)
-  logs <- atom_log_probabilities(plan, a, b, theta)
+  logs <- atom_log_probabilities(plan, eta)
   weights <- exp(logs)
   J <- length(a)
   h <- sqrt(J) * weighted_sd(logs, estimates)
@@ -65,10 +64,10 @@ risk_diff <- function(a, b, theta, estimator, margin) {
 
 scaled_reports <- function(plan, estimates, a, b) {
   values <- unique(estimates)
-  info <- vapply(values, function(t) sqrt(length(a)) * se_info(a, b, t),
+  info <- vapply(values, function(t) sqrt(length(a)) * information_se(a, a * (t - b)),
                  numeric(1))
   boot <- vapply(values, function(t) {
-    sqrt(length(a)) * law_sd(plan, estimates, a, b, t)
+    sqrt(length(a)) * law_sd(plan, estimates, a * (t - b))
   }, numeric(1))
   indices <- match(estimates, values)
   list(info = info[indices], boot = boot[indices])
@@ -76,7 +75,7 @@ scaled_reports <- function(plan, estimates, a, b) {
 
 selection_risk <- function(a, b, estimates, estimator, margin, weights, A, B, h) {
   choices <- vapply(estimates, function(t) {
-    selection_at(a, b, t, estimator, margin)
+    selection_at(a, a * (t - b), estimator, margin)
   }, character(1))
   probabilities <- vapply(c("info", "boot", "none"), function(choice) {
     sum(weights[choices == choice])

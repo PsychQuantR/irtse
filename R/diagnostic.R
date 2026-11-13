@@ -36,16 +36,19 @@ se_diagnostic <- function(a, b, theta, estimator) {
   d2 <- delta2(a, b, theta, estimator)
   d3 <- if (estimator == "MLE") delta3(a, b, theta, estimator) else NA_real_
   info <- se_info(a, b, theta)
-  coordinates <- reference_coordinates(b, theta)
-  nearest <- nearest_coefficient_zero(a, coordinates$b, coordinates$theta,
-                                      estimator, info)
+  nearest <- nearest_coefficient_zero(a, a * (theta - b), estimator, info)
+  zero <- if (is.na(nearest)) NA_real_ else finite_value(theta + nearest, "nearest zero")
   list(delta2 = d2, delta3 = d3, sign_delta2 = as.double(sign(d2)),
-       se_info = info, nearest_zero = nearest + coordinates$reference,
-       zero_distance_se = abs(nearest - coordinates$theta) / info)
+       se_info = info, nearest_zero = zero,
+       zero_distance_se = abs(nearest) / info)
 }
 
 coefficient_factors <- function(a, b, theta, estimator) {
-  ratio_factors(design_ratios(a, b, theta, zero_if_unresolved = TRUE)$ratios,
+  logit_factors(a, a * (theta - b), estimator)
+}
+
+logit_factors <- function(a, eta, estimator) {
+  ratio_factors(design_ratios(a, eta, zero_if_unresolved = TRUE)$ratios,
                 estimator, zero_if_unresolved = TRUE)
 }
 
@@ -60,17 +63,17 @@ factor_zeros <- function(grid, values, f) {
   c(hits, refined)
 }
 
-nearest_coefficient_zero <- function(a, b, theta, estimator, info) {
-  window <- finite_value(c(theta - 4 * info, theta + 4 * info), "diagnostic window")
+nearest_coefficient_zero <- function(a, eta, estimator, info) {
+  window <- finite_value(c(-4 * info, 4 * info), "diagnostic window")
   grid <- seq(window[[1L]], window[[2L]], length.out = 4001L)
-  factors <- vapply(grid, function(t) {
-    coefficient_factors(a, b, t, estimator)
+  factors <- vapply(grid, function(d) {
+    logit_factors(a, eta + a * d, estimator)
   }, numeric(2))
   candidates <- numeric()
   for (i in seq_len(2L)) {
-    f <- function(t) coefficient_factors(a, b, t, estimator)[[i]]
+    f <- function(d) logit_factors(a, eta + a * d, estimator)[[i]]
     candidates <- c(candidates, factor_zeros(grid, factors[i, ], f))
   }
   if (!length(candidates)) return(NA_real_)
-  candidates[[which.min(abs(candidates - theta))]]
+  candidates[[which.min(abs(candidates))]]
 }

@@ -13,7 +13,7 @@
 delta2 <- function(a, b, theta, estimator) {
   validate_design(a, b, theta)
   validate_estimator(estimator)
-  delta2_from_ratios(design_ratios(a, b, theta), estimator)
+  delta2_from_ratios(design_ratios(a, a * (theta - b)), estimator)
 }
 
 delta2_from_ratios <- function(design, estimator) {
@@ -54,7 +54,7 @@ delta3 <- function(a, b, theta, estimator) {
     message("No third-order coefficient is available for the WLE.")
     return(NA_real_)
   }
-  delta3_from_ratios(design_ratios(a, b, theta))
+  delta3_from_ratios(design_ratios(a, a * (theta - b)))
 }
 
 delta3_from_ratios <- function(design) {

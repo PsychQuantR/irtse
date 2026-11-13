@@ -47,9 +47,20 @@ signed_log_mean <- function(log_terms, factors, what = "coefficient polynomial",
   c(sign = sign(total), log_abs = largest + log(abs(total)) - log(length(factors)))
 }
 
-log_information <- function(a, b, theta) {
-  eta <- a * (theta - b)
-  log_u <- plogis(eta, log.p = TRUE) + plogis(-eta, log.p = TRUE)
+checked_logits <- function(eta) {
+  finite_value(eta, "a logit")
+  if (any(eta != 0 & tanh(eta / 2) == 0)) representation_error("a logit")
+  eta
+}
+
+log_probabilities <- function(eta) {
+  eta <- checked_logits(eta)
+  list(p = plogis(eta, log.p = TRUE), q = plogis(-eta, log.p = TRUE))
+}
+
+log_information <- function(a, eta) {
+  probabilities <- log_probabilities(eta)
+  log_u <- probabilities$p + probabilities$q
   log_weights <- 2 * log(a) + log_u
   log_k2 <- log_sum(log_weights) - log(length(a))
   if (!is.finite(log_k2)) representation_error("information")
@@ -108,8 +119,8 @@ scaled_design_mean <- function(r, log_a, log_u, factors, keep,
 # Ratios are scaled by a weighted discrimination to keep polynomials bounded.
 # zero_if_unresolved is for the zero search of se_diagnostic() only: there an
 # average or factor that is not resolved at an ability is a zero of it.
-design_ratios <- function(a, b, theta, zero_if_unresolved = FALSE) {
-  information <- log_information(a, b, theta)
+design_ratios <- function(a, eta, zero_if_unresolved = FALSE) {
+  information <- log_information(a, eta)
   log_u <- information$log_u
   u <- exp(log_u)
   s <- -tanh(information$eta / 2)
@@ -134,9 +145,8 @@ design_ratios <- function(a, b, theta, zero_if_unresolved = FALSE) {
        log_k2 = information$log_k2, log_scale = log_scale, averages = averages)
 }
 
-reference_coordinates <- function(b, theta) {
+reference_coordinates <- function(b) {
   reference <- finite_value(min(b) + (max(b) - min(b)) / 2, "reference point")
   list(b = finite_value(b - reference, "shifted difficulties"),
-       theta = finite_value(theta - reference, "shifted ability"),
        reference = reference)
 }

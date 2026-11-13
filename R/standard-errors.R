@@ -14,7 +14,11 @@
 #' se_info(rep(1, 6), rep(0, 6), 0)
 se_info <- function(a, b, theta) {
   validate_design(a, b, theta)
-  design <- log_information(a, b, theta)
+  information_se(a, a * (theta - b))
+}
+
+information_se <- function(a, eta) {
+  design <- log_information(a, eta)
   exp_value(-(log(length(a)) + design$log_k2) / 2, what = "information SE")
 }
 
@@ -49,14 +53,12 @@ se_info <- function(a, b, theta) {
 se_boot <- function(a, b, theta, estimator) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
-  coordinates <- reference_coordinates(b, theta)
-  b <- coordinates$b
-  theta <- coordinates$theta
-  bootstrap_se(a, b, theta, estimator)
+  eta <- checked_logits(a * (theta - b))
+  bootstrap_se(a, reference_coordinates(b)$b, eta, estimator)
 }
 
-bootstrap_se <- function(a, b, theta, estimator) {
+bootstrap_se <- function(a, b, eta, estimator) {
   plan <- atom_plan(a, estimator, 100000, "se_boot()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
-  law_sd(plan, estimates, a, b, theta)
+  law_sd(plan, estimates, eta)
 }

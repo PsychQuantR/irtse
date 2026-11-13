@@ -11,7 +11,7 @@
 #' design_cumulants(1, 0, 0)
 design_cumulants <- function(a, b, theta) {
   validate_design(a, b, theta)
-  design <- design_ratios(a, b, theta)
+  design <- design_ratios(a, a * (theta - b))
   values <- vapply(seq_len(6L), function(i) {
     exp_value(design$averages["log_abs", i], design$averages["sign", i],
               "design cumulant")

@@ -24,16 +24,22 @@ Second-order coefficient of the scaled risk difference
 }
 \section{Numerical accuracy}{
 
-Results depend on \code{theta} and \code{b} only through \code{a * (theta - b)} computed in
-double precision; computations using the law of T and diagnostic zero searches
-use coordinates relative to the midpoint of the difficulties.
-A design average whose nonzero terms cancel to zero after rounding stops with
-\verb{not resolved}; accuracy degrades with cancellation between items and near
-the zeros of a coefficient.
+At the supplied ability, information, coefficients and the law of T use
+\code{a * (theta - b)} computed from the supplied inputs in double precision;
+estimates remain offsets from the midpoint of the difficulties, while
+diagnostic zero searches use offsets from the supplied \code{theta}.
+Accuracy depends on cancellation between items, each item's cumulant polynomial
+near its zeros, the subtraction \code{theta - b}, and proximity to a coefficient's
+zeros; a design average whose nonzero terms cancel to zero after rounding stops
+with \verb{not resolved}, except in the zero search of \code{se_diagnostic()}, where an
+unresolved average counts as a zero.
 Log scales and normalised cumulant ratios avoid intermediate overflow and
-underflow, while a nonzero result outside double precision stops with
-\code{representable} (except underflowed probabilities in \code{risk_diff()}'s \code{p_select},
-which are returned as zero).
+underflow, while a nonzero result outside double precision, a non-finite logit,
+or a nonzero logit whose \code{tanh(eta / 2)} is zero stops with \code{representable}
+(underflowed probabilities in \code{risk_diff()}'s \code{p_select} are returned as zero).
+Discriminations within 8 units in the last place of a commensurable design are
+treated as that design, so totals within this lattice tolerance are identified
+as one atom and can give an exactly zero bootstrap SE.
 }
 
 \examples{

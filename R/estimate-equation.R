@@ -1,12 +1,12 @@
 estimate_equation <- function(theta, a, b, estimator, T = 0) {
   eta <- sweep(outer(theta, b, "-"), 2L, a, "*")
+  probabilities <- log_probabilities(eta)
   p <- plogis(eta)
   q <- plogis(-eta)
   positive <- eta > 0
   weighted <- function(x, powers) rowSums(sweep(x, 2L, powers, "*"))
   score <- compensated_score(eta, a, T, p, q)
-  log_weights <- sweep(plogis(eta, log.p = TRUE) +
-                         plogis(-eta, log.p = TRUE), 2L, 2 * log(a), "+")
+  log_weights <- sweep(probabilities$p + probabilities$q, 2L, 2 * log(a), "+")
   largest <- apply(log_weights, 1L, max)
   if (any(!is.finite(largest))) representation_error("estimating equation")
   weights <- exp(log_weights - largest)
