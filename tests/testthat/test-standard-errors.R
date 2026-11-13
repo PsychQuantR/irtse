@@ -446,6 +446,7 @@ test_that("Package files contain no local paths or private issue references", {
                       full.names = TRUE, all.files = TRUE)
   source_r <- testthat::test_path("..", "..", "R")
   if (dir.exists(source_r)) paths <- c(paths, list.files(source_r, full.names = TRUE))
+  paths <- scannable_files(paths)
   forbidden_path <- posix_local_path_pattern()
   private_issue <- paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+")
   bad <- vapply(unique(paths), function(path) {
@@ -630,6 +631,7 @@ test_that("All source files exclude local paths and private tracker references",
     paths <- list.files(system.file(package = "irtse"), recursive = TRUE,
                         full.names = TRUE, all.files = TRUE)
   }
+  paths <- scannable_files(paths)
   patterns <- c(paste0("[A-Za-z]", ":", "\\\\"),
                 paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+"),
                 paste0("/", "issues", "/", "[0-9]+"))
@@ -905,6 +907,25 @@ test_that("README and help retain both item-level accuracy qualifications", {
     expect_match(text, "cumulant polynomial near its zeros", fixed = TRUE, info = name)
     expect_match(text, "theta - b", fixed = TRUE, info = name)
   }
+})
+
+# Requirement: Package metadata and documentation
+test_that("The scan for local paths reads package text files only", {
+  paths <- c("pkg/R/irtse.rdb", "pkg/R/irtse.rdx", "pkg/Meta/package.rds",
+             "pkg/help/aliases.RDS", "pkg/.git", "pkg/.git/logs/HEAD",
+             "pkg/.git/hooks/pre-commit.sample", ".git/config",
+             "pkg/R/irtse", "pkg/NEWS.md", "pkg/R/risk.R", "pkg/man/se_boot.Rd",
+             "pkg/.Rbuildignore", "pkg/tests/testthat/words.rds.txt",
+             "pkg/R/.gitkeep")
+  expect_identical(scannable_files(paths),
+                   c("pkg/R/irtse", "pkg/NEWS.md", "pkg/R/risk.R",
+                     "pkg/man/se_boot.Rd", "pkg/.Rbuildignore",
+                     "pkg/tests/testthat/words.rds.txt", "pkg/R/.gitkeep"))
+  # Three bytes of a compressed index read as a drive path: the chance match
+  # that the scan must not meet.
+  compressed <- as.raw(c(0x34, 0x6e, 0x45, 0x3a, 0x5c, 0x58))
+  drive_path <- paste0("[A-Za-z]", ":", "\\\\")
+  expect_gt(length(grepRaw(drive_path, compressed)), 0L)
 })
 
 # Requirement: Package metadata and documentation
