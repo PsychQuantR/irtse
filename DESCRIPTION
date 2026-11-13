@@ -1,0 +1,27 @@
+Package: irtse
+Type: Package
+Title: Information-Based and Exact Bootstrap Standard Errors for IRT Ability Estimates
+Version: 0.0.0.9000
+Authors@R: person("Che", "Cheng", email = "che830621@stat.sinica.edu.tw",
+                  role = c("aut", "cre"))
+Description: For dichotomous logistic item response models with one or two
+    item parameters, computes the information-based standard error and the
+    exact parametric-bootstrap standard error of the ability estimate (the
+    maximum likelihood estimate on responses that are neither all correct
+    nor all wrong, and Warm's weighted likelihood estimate), by exact
+    enumeration of the law of the sufficient statistic. Also evaluates the
+    closed forms of the second- and third-order coefficients of the
+    difference of the two scaled mean squared errors, the exact
+    finite-length risk difference, and a provisional rule that chooses
+    between the two standard errors.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.0.0)
+Imports:
+    irtcore,
+    stats
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
