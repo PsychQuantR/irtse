@@ -31,8 +31,8 @@ atom_log_probabilities <- function(plan, eta) {
   mass - total
 }
 
-atom_probabilities <- function(plan, a, b, theta) {
-  exp(atom_log_probabilities(plan, a * (theta - b)))
+atom_probabilities <- function(plan, b, theta) {
+  exp(atom_log_probabilities(plan, plan$a * (theta - b)))
 }
 
 law_sd <- function(plan, estimates, eta) {

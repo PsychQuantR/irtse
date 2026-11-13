@@ -25,7 +25,7 @@ diagnostic built on them.
   `risk_diff()`. They enumerate the law of the sufficient statistic
   `T = sum(a * X)`: on a lattice when the discriminations are equal or are
   integer multiples of a common unit, and pattern by pattern otherwise. Item
-  probabilities are computed as `P = plogis(eta)` and `Q = plogis(-eta)`, so
+  probabilities are computed on the log scale with `plogis(..., log.p = TRUE)`, so
   the law stays accurate at extreme abilities. `se_boot()` stops with an
   error above 100000 atoms, `risk_diff()` above 2000 atoms, and either above a
   lattice width of 1e6; the error states which limit and why. The package never
@@ -56,8 +56,10 @@ at these estimates; supplying an estimate outside the range as `theta` to
 All computations are in double precision. Inputs within the supported range
 remain subject to the following numerical limits.
 
-- At the supplied ability, information, coefficients and the law of T use the
+- At the supplied ability, information and coefficients use the
   logits `a * (theta - b)` computed from the supplied inputs in double precision.
+  The law of T uses these logits with the identified discriminations described
+  below.
   `se_boot()`, `risk_diff()` and `se_select()` keep estimates as offsets from the
   midpoint of the difficulties, so a common shift of every `b` and of `theta`
   changes the results only through rounding of the shifted inputs.
@@ -70,22 +72,38 @@ remain subject to the following numerical limits.
   the function stops with an error containing "not resolved", except in the zero
   search of `se_diagnostic()`, where an unresolved average counts as a zero.
   Accuracy also depends on each item's cumulant polynomial near its zeros and
-  on the subtraction `theta - b`. `delta2()` and `delta3()` inherit these errors
+  on the subtraction `theta - b` of nearly equal numbers.
+  `delta2()` and `delta3()` inherit these errors
   and lose further accuracy near their own zeros.
+- Log scales and normalised cumulant ratios reduce intermediate overflow and
+  underflow. A call can still stop with "representable" when an intermediate
+  value, such as a scaled cumulant ratio or a squared report before its weight
+  is applied, is not representable, even if the returned quantity would be.
+  Score terms representable only as subnormal numbers are kept, with fewer
+  significant bits; the root inherits that loss of accuracy.
 - A value outside the range of double precision stops with an error containing
   "representable"; the package does not return `Inf`, `NaN`, or 0 in place of
   a non-zero value, except for a probability in `p_select` below the smallest
-  positive double or the lattice identification described below.
+  positive double, the lattice identification described below, or a risk term
+  whose report agrees with its target to within rounding. In the third case,
+  the squared difference is zero; for example,
+  `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
+  though the mathematical risk is positive.
   For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
   representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
   because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
   causes this error, though it cannot arise at the supplied ability within
   the supported range, where logits have absolute value at most 2e6.
-- Discriminations are treated as commensurable only when their ratios are
-  integers up to representation error (8 units in the last place), for example
-  `c(0.1, 0.2, 0.3)`; otherwise every response pattern is its own atom.
-  Discriminations within this 8-ulp tolerance are identified with the commensurable
-  design, so merged totals can give an exactly zero bootstrap SE.
+- Discriminations are identified with a commensurable design when multiplying
+  their ratios to the smallest discrimination by an integer from 1 to 1000
+  puts them within eight relative machine epsilons of integers. This includes
+  decimal inputs such as `c(0.1, 0.2, 0.3)` and distinct supplied doubles such
+  as `c(1, 1 + 2^-50)`; otherwise every response pattern is its own atom.
+  The identified design is used throughout the law-based functions: totals,
+  estimating equations, estimates, the law at `theta` and at each estimate,
+  and every report and rule coefficient at an estimate. The `se_info`, `delta2`
+  and `delta3` fields of `se_select()` still use the supplied discriminations.
+  Identified totals form one atom and can give an exactly zero bootstrap SE.
 - The WLE equation can have several roots. The package counts roots on a grid
   together with the extrema of the function that the grid reveals, and stops
   with an error naming T when the count is not one. The count is certified

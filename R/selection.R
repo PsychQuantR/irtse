@@ -69,7 +69,7 @@ se_select <- function(a, b, theta, estimator, margin) {
   validate_margin(margin)
   eta <- checked_logits(a * (theta - b))
   info <- information_se(a, eta)
-  boot <- bootstrap_se(a, reference_coordinates(b)$b, eta, estimator)
+  boot <- bootstrap_se(a, b, theta, estimator)
   coefficients <- rule_coefficients(a, eta, estimator)
   d2 <- coefficients$delta2
   d3 <- coefficients$delta3

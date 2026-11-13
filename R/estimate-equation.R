@@ -1,9 +1,8 @@
 estimate_equation <- function(theta, a, b, estimator, T = 0) {
   eta <- sweep(outer(theta, b, "-"), 2L, a, "*")
   probabilities <- log_probabilities(eta)
-  p <- plogis(eta)
-  q <- plogis(-eta)
-  positive <- eta > 0
+  p <- exp(probabilities$p)
+  q <- exp(probabilities$q)
   weighted <- function(x, powers) rowSums(sweep(x, 2L, powers, "*"))
   score <- compensated_score(eta, a, T, p, q)
   log_weights <- sweep(probabilities$p + probabilities$q, 2L, 2 * log(a), "+")

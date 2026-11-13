@@ -38,9 +38,10 @@ risk_diff <- function(a, b, theta, estimator, margin) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
   if (!missing(margin)) validate_margin(margin)
+  plan <- atom_plan(a, estimator, 2000, "risk_diff()")
+  a <- plan$a
   eta <- checked_logits(a * (theta - b))
   b <- reference_coordinates(b)$b
-  plan <- atom_plan(a, estimator, 2000, "risk_diff()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
   reports <- scaled_reports(plan, estimates, a, b)
   logs <- atom_log_probabilities(plan, eta)

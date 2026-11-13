@@ -35,24 +35,41 @@ to \code{se_select()} is rejected.
 
 \section{Numerical accuracy}{
 
-At the supplied ability, information, coefficients and the law of T use
-\code{a * (theta - b)} computed from the supplied inputs in double precision;
+At the supplied ability, information and coefficients use
+\code{a * (theta - b)} computed from the supplied inputs in double precision.
+The law of T uses these logits with the identified discriminations described
+below. In law-based computations,
 estimates remain offsets from the midpoint of the difficulties, while
 diagnostic zero searches use offsets from the supplied \code{theta}.
 Accuracy depends on cancellation between items, each item's cumulant polynomial
-near its zeros, the subtraction \code{theta - b}, and proximity to a coefficient's
+near its zeros, the subtraction \code{theta - b} of nearly equal numbers,
+and proximity to a coefficient's
 zeros; a design average whose nonzero terms cancel to zero after rounding stops
 with \verb{not resolved}, except in the zero search of \code{se_diagnostic()}, where an
 unresolved average counts as a zero.
-Log scales and normalised cumulant ratios avoid intermediate overflow and
-underflow. Inputs within the supported range can still yield a nonzero result
+Log scales and normalised cumulant ratios reduce intermediate overflow and
+underflow. A call can still stop with \code{representable} when an intermediate
+value, such as a scaled cumulant ratio or a squared report before its weight
+is applied, is not representable, even if the returned quantity would be.
+Score terms representable only as subnormal numbers are kept, with fewer
+significant bits; the root inherits that loss of accuracy.
+Inputs within the supported range can still yield a nonzero result
 outside double precision, as in \code{delta2(1, 0, 300, "MLE")}, or a nonzero logit
 whose \code{tanh(eta / 2)} is zero, as in \code{delta2(1, 0, 2^-1074, "MLE")}.
 These cases, and any non-finite logit, stop with \code{representable}
 (underflowed probabilities in \code{risk_diff()}'s \code{p_select} are returned as zero).
-Discriminations within 8 units in the last place of a commensurable design are
-treated as that design, so totals within this lattice tolerance are identified
-as one atom and can give an exactly zero bootstrap SE.
+Discriminations whose ratios satisfy the lattice tolerance of eight relative
+machine epsilons are identified with the commensurable design, even when
+the supplied doubles are distinct. The identified design is used throughout
+the law-based functions: totals, estimating equations, estimates, the law at
+\code{theta} and at each estimate, and every report and rule coefficient at an
+estimate. The \code{se_info}, \code{delta2} and \code{delta3} fields of \code{se_select()} still use
+the supplied discriminations. Identified totals form one atom and can give
+an exactly zero bootstrap SE.
+A third exception to nonzero results is a risk term whose report agrees with
+its target to within rounding: its squared difference is zero. For example,
+\code{risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot} can be zero even
+though the mathematical risk is positive.
 }
 
 \examples{

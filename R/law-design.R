@@ -55,6 +55,7 @@ atom_plan <- function(a, estimator, limit, caller) {
   if (truncated) points <- points[points > 0 & points < width]
   check_atom_count(length(points), limit, caller)
   list(type = "lattice", T = points * lattice$step, keep = points + 1L,
+       a = lattice$weights * lattice$step,
        weights = lattice$weights, truncated = truncated)
 }
 
@@ -66,5 +67,5 @@ pattern_plan <- function(a, truncated, limit, caller) {
     (ids %/% 2^(j - 1L)) %% 2 == 1
   }, logical(length(ids)))
   list(type = "patterns", T = as.vector(patterns %*% a),
-       patterns = patterns, truncated = truncated)
+       a = a, patterns = patterns, truncated = truncated)
 }

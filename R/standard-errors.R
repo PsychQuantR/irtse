@@ -6,7 +6,8 @@
 #' @return The actual standard error `1 / sqrt(sum(a^2 * P * Q))`,
 #'   without multiplication by `sqrt(J)`.
 #' @details
-#' Item probabilities are computed as `P = plogis(eta)` and `Q = plogis(-eta)`,
+#' Item probabilities are computed on the log scale as
+#' `log P = plogis(eta, log.p = TRUE)` and `log Q = plogis(-eta, log.p = TRUE)`,
 #' where `eta = a * (theta - b)`. Information is accumulated on the log scale.
 #' @template numerical-accuracy
 #' @export
@@ -37,8 +38,8 @@ information_se <- function(a, eta) {
 #' with every lattice weight equal to 1 for equal discriminations. Other designs
 #' enumerate response patterns. The law is convolved on the log scale before
 #' conditioning, preserving small conditional probabilities. Item probabilities
-#' are computed as
-#' `P = plogis(eta)` and `Q = plogis(-eta)`, where `eta = a * (theta - b)`.
+#' are computed as `log P = plogis(eta, log.p = TRUE)` and
+#' `log Q = plogis(-eta, log.p = TRUE)`, where `eta = a * (theta - b)`.
 #' Computation stops if the atom count exceeds 100000 or lattice width exceeds
 #' 1e6. The package stops instead of approximating. A missing or non-unique
 #' estimator root also causes an error naming the sufficient statistic T.
@@ -53,12 +54,12 @@ information_se <- function(a, eta) {
 se_boot <- function(a, b, theta, estimator) {
   validate_design(a, b, theta)
   validate_law_estimator(a, estimator)
-  eta <- checked_logits(a * (theta - b))
-  bootstrap_se(a, reference_coordinates(b)$b, eta, estimator)
+  bootstrap_se(a, b, theta, estimator)
 }
 
-bootstrap_se <- function(a, b, eta, estimator) {
+bootstrap_se <- function(a, b, theta, estimator) {
   plan <- atom_plan(a, estimator, 100000, "se_boot()")
-  estimates <- estimate_atoms(plan$T, a, b, estimator)
+  eta <- checked_logits(plan$a * (theta - b))
+  estimates <- estimate_atoms(plan$T, plan$a, reference_coordinates(b)$b, estimator)
   law_sd(plan, estimates, eta)
 }
