@@ -94,3 +94,33 @@ test_that("WLE risk difference for one hundred identical items", {
 
   expect_equal(100^2 * risk$diff, -456071723352/10000000000, tolerance = 1e-9)
 })
+
+# Requirement: Exact scaled risk of the selection rule
+test_that("Both rules worse than both fixed reports near a zero of Delta_2", {
+  risk <- risk_diff(
+    a = rep(c(1, 2), 25), b = rep(c(-1/2, 1), 25), theta = 0.01805334808,
+    estimator = "MLE", margin = 0
+  )
+
+  expect_lt(abs(risk$smse_info - 0.0382155), 1e-7)
+  expect_lt(abs(risk$smse_boot - 0.0385591), 1e-7)
+  expect_lt(abs(risk$smse_select - 0.0451462), 1e-7)
+  expect_gt(risk$smse_select, risk$smse_info)
+  expect_gt(risk$smse_select, risk$smse_boot)
+  expect_equal(
+    round(risk$smse_select / min(risk$smse_info, risk$smse_boot) - 1, 3),
+    0.181
+  )
+  expect_equal(risk$p_select[["none"]], 0)
+  expect_identical(names(risk$p_select), c("info", "boot", "none"))
+  expect_equal(sum(risk$p_select), 1, tolerance = 1e-12)
+})
+
+# Requirement: Exact scaled risk of the selection rule
+test_that("Without margin the list is unchanged", {
+  result <- risk_diff(
+    a = rep(1, 6), b = rep(0, 6), theta = 0, estimator = "MLE"
+  )
+
+  expect_named(result, c("J", "h_true", "smse_info", "smse_boot", "diff"))
+})
