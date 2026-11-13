@@ -7,14 +7,18 @@
 #'   without multiplication by `sqrt(J)`.
 #' @details
 #' Item probabilities are computed as `P = plogis(eta)` and `Q = plogis(-eta)`,
-#' where `eta = a * (theta - b)`.
+#' where `eta = a * (theta - b)`. Information is accumulated on the log scale.
+#' Numerical computations use log scales and normalised cumulant ratios where
+#' needed. A result outside the range of double precision stops with an error
+#' containing `representable`, rather than returning a non-finite value or
+#' silently underflowing to zero.
 #' @export
 #' @examples
 #' se_info(rep(1, 6), rep(0, 6), 0)
 se_info <- function(a, b, theta) {
   validate_design(a, b, theta)
-  eta <- a * (theta - b)
-  1 / sqrt(sum(a^2 * plogis(eta) * plogis(-eta)))
+  design <- design_ratios(a, b, theta)
+  exp_value(-(log(length(a)) + design$log_k2) / 2, what = "information SE")
 }
 
 #' Exact parametric-bootstrap standard error
@@ -30,11 +34,20 @@ se_info <- function(a, b, theta) {
 #' all wrong and requires at least two items. The WLE law includes all responses.
 #' Equal and commensurable discriminations use the same lattice convolution,
 #' with every lattice weight equal to 1 for equal discriminations. Other designs
-#' enumerate response patterns. Item probabilities are computed as
+#' enumerate response patterns. The law is convolved on the log scale before
+#' conditioning, preserving small conditional probabilities. Item probabilities
+#' are computed as
 #' `P = plogis(eta)` and `Q = plogis(-eta)`, where `eta = a * (theta - b)`.
 #' Computation stops if the atom count exceeds 100000 or lattice width exceeds
 #' 1e6. The package stops instead of approximating. A missing or non-unique
 #' estimator root also causes an error naming the sufficient statistic T.
+#' WLE roots are counted on a grid together with local extrema located by
+#' derivative sign changes between grid points. A pair of extrema inside one
+#' grid cell can still be missed; this count does not certify global uniqueness.
+#' Numerical computations use log scales and normalised cumulant ratios where
+#' needed. A result outside the range of double precision stops with an error
+#' containing `representable`, rather than returning a non-finite value or
+#' silently underflowing to zero.
 #' @export
 #' @examples
 #' se_boot(rep(1, 4), rep(0, 4), 0, "MLE")

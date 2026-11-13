@@ -1,6 +1,10 @@
-refine_roots <- function(T, low, high, a, b, estimator) {
-  fl <- T + estimate_equation(low, a, b, estimator)$value
-  fh <- T + estimate_equation(high, a, b, estimator)$value
+refine_roots <- function(T, low, high, a, b, estimator, derivative = FALSE) {
+  evaluate <- function(x, totals) {
+    eq <- estimate_equation(x, a, b, estimator, totals)
+    if (derivative) list(value = eq$derivative, derivative = rep(0, length(x))) else eq
+  }
+  fl <- evaluate(low, T)$value
+  fh <- evaluate(high, T)$value
   roots <- low + (high - low) / 2
   roots[fl == 0] <- low[fl == 0]
   roots[fh == 0] <- high[fh == 0]
@@ -8,8 +12,8 @@ refine_roots <- function(T, low, high, a, b, estimator) {
   for (iteration in seq_len(2200L)) {
     if (!length(active)) return(roots)
     x <- roots[active]
-    eq <- estimate_equation(x, a, b, estimator)
-    f <- T[active] + eq$value
+    eq <- evaluate(x, T[active])
+    f <- eq$value
     exact <- f == 0
     left <- sign(f) == sign(fl[active]) & !exact
     right <- !left & !exact
@@ -35,12 +39,10 @@ refine_roots <- function(T, low, high, a, b, estimator) {
 }
 
 estimate_atoms <- function(T, a, b, estimator) {
-  tau <- max(abs(b)) + log(4 * length(a) * max(a) / min(a)) / min(a) + 1
-  if (!is.finite(tau)) {
-    stop("a and b yield a non-finite root interval.", call. = FALSE)
-  }
+  L <- (log(4 * length(a)) + log(max(a)) - log(min(a))) / min(a) + 1
+  interval <- finite_value(c(min(b) - L, max(b) + L), "root interval")
   totals <- unique(T)
-  bracket <- root_brackets(totals, a, b, estimator, tau)
+  bracket <- root_brackets(totals, a, b, estimator, interval)
   roots <- refine_roots(totals, bracket$low, bracket$high, a, b, estimator)
   roots[match(T, totals)]
 }

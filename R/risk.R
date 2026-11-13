@@ -25,6 +25,13 @@
 #' Exact enumeration stops above 2000 atoms or lattice width 1e6. The package
 #' stops instead of approximating. Missing or non-unique roots cause an error
 #' naming T. The optional rule is provisional; see [se_select()] for its scope.
+#' WLE roots are counted on a grid together with local extrema located by
+#' derivative sign changes between grid points. A pair of extrema inside one
+#' grid cell can still be missed; this count does not certify global uniqueness.
+#' Numerical computations use log scales and normalised cumulant ratios where
+#' needed. A result outside the range of double precision stops with an error
+#' containing `representable`, rather than returning a non-finite value or
+#' silently underflowing to zero.
 #' @export
 #' @examples
 #' risk_diff(rep(1, 4), rep(0, 4), 0, "MLE")
@@ -35,16 +42,17 @@ risk_diff <- function(a, b, theta, estimator, margin) {
   plan <- atom_plan(a, estimator, 2000, "risk_diff()")
   estimates <- estimate_atoms(plan$T, a, b, estimator)
   reports <- scaled_reports(plan, estimates, a, b)
-  weights <- atom_probabilities(plan, a, b, theta)
+  logs <- atom_log_probabilities(plan, a, b, theta)
+  weights <- exp(logs)
   J <- length(a)
-  centre <- sum(weights * estimates)
-  h <- sqrt(J) * sqrt(sum(weights * (estimates - centre)^2))
+  h <- sqrt(J) * weighted_sd(logs, estimates)
   A <- reports$info
   B <- reports$boot
   result <- list(J = J, h_true = h,
                  smse_info = sum(weights * (A - h)^2),
                  smse_boot = sum(weights * (B - h)^2),
                  diff = sum(weights * (A - B) * (A + B - 2 * h)))
+  finite_value(unlist(result), "scaled risk")
   if (!missing(margin)) {
     selection <- selection_risk(a, b, estimates, estimator, margin,
                                 weights, A, B, h)
@@ -73,7 +81,7 @@ selection_risk <- function(a, b, estimates, estimator, margin, weights, A, B, h)
   }, numeric(1))
   report <- ifelse(choices == "info", A, B)
   risk <- if (probabilities[["none"]] > 0) NA_real_ else {
-    sum(weights * (report - h)^2)
+    finite_value(sum(weights * (report - h)^2), "selection risk")
   }
   list(smse_select = risk, p_select = probabilities)
 }

@@ -22,6 +22,11 @@ A single item is valid; no response enumeration is needed.
 \description{
 Second-order coefficient of the scaled risk difference
 }
+\details{
+Cumulant ratios and log information avoid underflow or overflow in powers.
+A result outside the range of double precision stops with an error containing
+\code{representable}. Exact zero coefficients remain zero.
+}
 \examples{
 delta2(1, 0, -1, "MLE")
 }

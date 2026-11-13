@@ -40,6 +40,12 @@ not a certificate that no other zeros exist.
 
 No estimator-specific response law is used, so no enumeration limit applies
 and a single item is valid.
+Numerical computations use log scales and normalised cumulant ratios where
+needed. A result outside the range of double precision stops with an error
+containing \code{representable}, rather than returning a non-finite value or
+silently underflowing to zero. This includes a Delta_2 whose sign is
+determined but whose value is out of range: the function returns the
+coefficient, so it does not report a sign or a choice without it.
 }
 \examples{
 se_diagnostic(rep(1, 6), rep(0, 6), -0.5, "MLE")

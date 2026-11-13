@@ -26,6 +26,12 @@
 #'
 #' No estimator-specific response law is used, so no enumeration limit applies
 #' and a single item is valid.
+#' Numerical computations use log scales and normalised cumulant ratios where
+#' needed. A result outside the range of double precision stops with an error
+#' containing `representable`, rather than returning a non-finite value or
+#' silently underflowing to zero. This includes a Delta_2 whose sign is
+#' determined but whose value is out of range: the function returns the
+#' coefficient, so it does not report a sign or a choice without it.
 #' @export
 #' @examples
 #' se_diagnostic(rep(1, 6), rep(0, 6), -0.5, "MLE")
@@ -42,26 +48,7 @@ se_diagnostic <- function(a, b, theta, estimator) {
 }
 
 coefficient_factors <- function(a, b, theta, estimator) {
-  eta <- a * (theta - b)
-  p <- plogis(eta)
-  u <- p * plogis(-eta)
-  log_weights <- 2 * log(a) - abs(eta) - 2 * log1p(exp(-abs(eta)))
-  if (any(!is.finite(log_weights))) {
-    stop("a, b and theta yield non-finite diagnostic factors.", call. = FALSE)
-  }
-  weights <- exp(log_weights - max(log_weights))
-  weights <- weights / sum(weights)
-  r3 <- sum(weights * a * (1 - 2 * p))
-  r4 <- sum(weights * a^2 * (1 - 6 * u))
-  r5 <- sum(weights * a^3 * (1 - 2 * p) * (1 - 12 * u))
-  # These are k3 / k2 and 8 * k2^4 * F. Both scale factors are
-  # strictly positive, preserving every zero and sign without tiny denominators.
-  second <- if (estimator == "MLE") {
-    -(35 * r3^3 - 30 * r3 * r4 + 4 * r5)
-  } else {
-    r3 * (5 * r4 - 8 * r3^2)
-  }
-  c(r3, second)
+  ratio_factors(design_ratios(a, b, theta)$ratios, estimator)
 }
 
 factor_zeros <- function(grid, values, f) {
@@ -76,7 +63,8 @@ factor_zeros <- function(grid, values, f) {
 }
 
 nearest_coefficient_zero <- function(a, b, theta, estimator, info) {
-  grid <- seq(theta - 4 * info, theta + 4 * info, length.out = 4001L)
+  window <- finite_value(c(theta - 4 * info, theta + 4 * info), "diagnostic window")
+  grid <- seq(window[[1L]], window[[2L]], length.out = 4001L)
   factors <- vapply(grid, function(t) {
     coefficient_factors(a, b, t, estimator)
   }, numeric(2))

@@ -20,6 +20,12 @@ the mean of \code{a^r} times the rth Bernoulli cumulant. A single item is valid.
 \description{
 Design averages of logistic cumulants
 }
+\details{
+Numerical computations use log scales and normalised cumulant ratios where
+needed. A result outside the range of double precision stops with an error
+containing \code{representable}, rather than returning a non-finite value or
+silently underflowing to zero.
+}
 \examples{
 design_cumulants(1, 0, 0)
 }

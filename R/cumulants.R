@@ -5,19 +5,20 @@
 #' @param theta Single finite ability, or ability estimate.
 #' @return A numeric vector named `k2`, ..., `k7`, with element r equal to
 #'   the mean of `a^r` times the rth Bernoulli cumulant. A single item is valid.
+#' @details
+#' Numerical computations use log scales and normalised cumulant ratios where
+#' needed. A result outside the range of double precision stops with an error
+#' containing `representable`, rather than returning a non-finite value or
+#' silently underflowing to zero.
 #' @export
 #' @examples
 #' design_cumulants(1, 0, 0)
 design_cumulants <- function(a, b, theta) {
   validate_design(a, b, theta)
-  eta <- a * (theta - b)
-  p <- plogis(eta)
-  u <- p * plogis(-eta)
-  s <- 1 - 2 * p
-  c(k2 = mean(a^2 * u),
-    k3 = mean(a^3 * u * s),
-    k4 = mean(a^4 * u * (1 - 6 * u)),
-    k5 = mean(a^5 * u * s * (1 - 12 * u)),
-    k6 = mean(a^6 * u * (1 - 30 * u + 120 * u^2)),
-    k7 = mean(a^7 * u * s * (1 - 60 * u + 360 * u^2)))
+  design <- design_ratios(a, b, theta)
+  values <- vapply(seq_len(6L), function(i) {
+    exp_value(design$averages["log_abs", i], design$averages["sign", i],
+              "design cumulant")
+  }, numeric(1))
+  stats::setNames(values, paste0("k", 2:7))
 }

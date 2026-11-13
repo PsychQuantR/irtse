@@ -22,7 +22,11 @@ Information-based standard error
 }
 \details{
 Item probabilities are computed as \code{P = plogis(eta)} and \code{Q = plogis(-eta)},
-where \code{eta = a * (theta - b)}.
+where \code{eta = a * (theta - b)}. Information is accumulated on the log scale.
+Numerical computations use log scales and normalised cumulant ratios where
+needed. A result outside the range of double precision stops with an error
+containing \code{representable}, rather than returning a non-finite value or
+silently underflowing to zero.
 }
 \examples{
 se_info(rep(1, 6), rep(0, 6), 0)

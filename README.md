@@ -85,7 +85,7 @@ se_diagnostic(rep(c(1, 2), 25), rep(c(-1/2, 1), 25), theta = 0.03,
 What is known, for logistic designs and the MLE on truncated responses (the
 WLE part of the underlying mathematical note has not been refereed):
 
-1. On a set of abilities that stays away from the zeros of the second-order
+1. On a compact set of abilities that contains no zero of the second-order
    coefficient Delta_2, choosing by the sign of Delta_2 at the estimate gives a
    scaled risk within an exponentially small amount of the smaller of the two
    fixed scaled risks.

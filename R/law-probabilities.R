@@ -1,50 +1,53 @@
-lattice_probabilities <- function(weights, p, q) {
-  mass <- 1
+lattice_probabilities <- function(weights, log_p, log_q) {
+  mass <- 0
   for (j in seq_along(weights)) {
     indices <- seq_along(mass)
-    next_mass <- numeric(length(mass) + weights[[j]])
-    next_mass[indices] <- mass * q[[j]]
+    next_mass <- rep(-Inf, length(mass) + weights[[j]])
+    next_mass[indices] <- mass + log_q[[j]]
     shifted <- indices + weights[[j]]
-    next_mass[shifted] <- next_mass[shifted] + mass * p[[j]]
+    next_mass[shifted] <- log_add(next_mass[shifted], mass + log_p[[j]])
     mass <- next_mass
   }
   mass
 }
 
-pattern_probabilities <- function(patterns, p, q) {
-  mass <- rep(1, nrow(patterns))
-  for (j in seq_along(p)) {
-    mass <- mass * ifelse(patterns[, j], p[[j]], q[[j]])
+pattern_probabilities <- function(patterns, log_p, log_q) {
+  mass <- numeric(nrow(patterns))
+  for (j in seq_along(log_p)) {
+    mass <- mass + ifelse(patterns[, j], log_p[[j]], log_q[[j]])
   }
   mass
+}
+
+atom_log_probabilities <- function(plan, a, b, theta) {
+  eta <- a * (theta - b)
+  log_p <- plogis(eta, log.p = TRUE)
+  log_q <- plogis(-eta, log.p = TRUE)
+  mass <- if (plan$type == "lattice") {
+    lattice_probabilities(plan$weights, log_p, log_q)[plan$keep]
+  } else {
+    pattern_probabilities(plan$patterns, log_p, log_q)
+  }
+  total <- log_sum(mass)
+  if (!is.finite(total)) representation_error("law of T at this theta")
+  mass - total
 }
 
 atom_probabilities <- function(plan, a, b, theta) {
-  eta <- a * (theta - b)
-  p <- plogis(eta)
-  q <- plogis(-eta)
-  mass <- if (plan$type == "lattice") {
-    lattice_probabilities(plan$weights, p, q)
-  } else {
-    pattern_probabilities(plan$patterns, p, q)
-  }
-  if (plan$type != "patterns") mass <- mass[plan$keep]
-  total <- sum(mass)
-  if (!is.finite(total)) {
-    stop("theta yields a non-finite normalising mass.", call. = FALSE)
-  }
-  if (total <= 0) {
-    stop(paste0(
-      "theta yields a zero normalising mass: all retained atom probabilities ",
-      "underflowed to zero in double precision; the package does not approximate."
-    ), call. = FALSE)
-  }
-  if (plan$truncated) mass <- mass / total
-  mass
+  exp(atom_log_probabilities(plan, a, b, theta))
 }
 
 law_sd <- function(plan, estimates, a, b, theta) {
-  weights <- atom_probabilities(plan, a, b, theta)
-  centre <- sum(weights * estimates)
-  sqrt(sum(weights * (estimates - centre)^2))
+  weighted_sd(atom_log_probabilities(plan, a, b, theta), estimates)
+}
+
+weighted_sd <- function(logs, estimates) {
+  # Centre relative to the modal estimate, preserving translation invariance
+  # when all estimates are far from zero.
+  offsets <- estimates - estimates[[which.max(logs)]]
+  centre <- sum(exp(logs) * offsets)
+  distances <- abs(offsets - centre)
+  if (all(distances == 0)) return(0)
+  variance <- log_sum(logs + 2 * log(distances))
+  exp_value(variance / 2, what = "bootstrap SE")
 }

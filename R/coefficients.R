@@ -6,35 +6,32 @@
 #' @param estimator Required: exactly `"MLE"` or `"WLE"`.
 #' @return The numeric coefficient Delta_2, based on design averages.
 #'   A single item is valid; no response enumeration is needed.
+#' @details
+#' Cumulant ratios and log information avoid underflow or overflow in powers.
+#' A result outside the range of double precision stops with an error containing
+#' `representable`. Exact zero coefficients remain zero.
 #' @export
 #' @examples
 #' delta2(1, 0, -1, "MLE")
 delta2 <- function(a, b, theta, estimator) {
   validate_design(a, b, theta)
   validate_estimator(estimator)
-  k <- coefficient_cumulants(a, b, theta)
-  unname(k[["k3"]] * delta2_factor(k, estimator))
+  design <- design_ratios(a, b, theta)
+  polynomial <- delta2_polynomial(design$ratios, estimator)
+  exp_value(polynomial[["log_abs"]] - log(8) + 4 * design$log_scale -
+              3 * design$log_k2, polynomial[["sign"]], "Delta_2")
 }
 
-coefficient_cumulants <- function(a, b, theta) {
-  k <- design_cumulants(a, b, theta)
-  if (any(!is.finite(k)) || k[["k2"]] <= 0) {
-    stop("a, b and theta yield non-finite cumulants or zero information.",
-         call. = FALSE)
-  }
-  k
-}
-
-delta2_factor <- function(k, estimator) {
-  k2 <- k[["k2"]]
-  k3 <- k[["k3"]]
-  k4 <- k[["k4"]]
-  k5 <- k[["k5"]]
-  if (estimator == "MLE") {
-    -(35 * k3^3 - 30 * k2 * k3 * k4 + 4 * k2^2 * k5) / (8 * k2^7)
+ratio_factors <- function(r, estimator) {
+  powers <- if (estimator == "MLE") {
+    rbind(c(3, 0, 0, 0, 0), c(1, 1, 0, 0, 0), c(0, 0, 1, 0, 0))
   } else {
-    k3 * (5 * k2 * k4 - 8 * k3^2) / (8 * k2^7)
+    rbind(c(1, 1, 0, 0, 0), c(3, 0, 0, 0, 0))
   }
+  coefficients <- if (estimator == "MLE") c(-35, 30, -4) else c(5, -8)
+  second <- polynomial_log(r, powers, coefficients)
+  # Signs are positive rescalings of the factors away from their zeros.
+  c(sign(r[["k3"]]), second[["sign"]])
 }
 
 #' Third-order coefficient of the scaled risk difference
@@ -46,6 +43,10 @@ delta2_factor <- function(k, estimator) {
 #' @return The numeric coefficient Delta_3 for the MLE. For the WLE,
 #'   `NA_real_` and a message stating that the coefficient is unavailable.
 #'   A single item is valid; no response enumeration is needed.
+#' @details
+#' Cumulant ratios and log information avoid underflow or overflow in powers.
+#' A result outside the range of double precision stops with an error containing
+#' `representable`. Exact zero coefficients remain zero.
 #' @export
 #' @examples
 #' delta3(1, 0, 0, "MLE")
@@ -56,21 +57,35 @@ delta3 <- function(a, b, theta, estimator) {
     message("No third-order coefficient is available for the WLE.")
     return(NA_real_)
   }
-  k <- coefficient_cumulants(a, b, theta)
-  delta3_mle(k)
+  design <- design_ratios(a, b, theta)
+  polynomial <- delta3_polynomial(design$ratios)
+  exp_value(polynomial[["log_abs"]] - log(768) + 6 * design$log_scale -
+              4 * design$log_k2, -polynomial[["sign"]], "Delta_3")
 }
 
-delta3_mle <- function(k) {
-  k2 <- k[["k2"]]
-  k3 <- k[["k3"]]
-  k4 <- k[["k4"]]
-  k5 <- k[["k5"]]
-  k6 <- k[["k6"]]
-  k7 <- k[["k7"]]
-  r3 <- 288 * k2^4 * k3 * k7 + 288 * k2^4 * k4 * k6 +
-    384 * k2^4 * k5^2 - 5152 * k2^3 * k3^2 * k6 -
-    16928 * k2^3 * k3 * k4 * k5 - 2120 * k2^3 * k4^3 +
-    49552 * k2^2 * k3^3 * k5 + 93388 * k2^2 * k3^2 * k4^2 -
-    279274 * k2 * k3^4 * k4 + 169263 * k3^6
-  -r3 / (768 * k2^10)
+polynomial_log <- function(r, powers, coefficients) {
+  r <- r[paste0("k", 3:7)]
+  logs <- log(abs(r))
+  logs[r == 0] <- 0
+  term_logs <- as.vector(powers %*% logs) + log(abs(coefficients))
+  signs <- sign(coefficients) * apply(powers, 1L, function(p) prod(sign(r)^p))
+  value <- signed_log_mean(term_logs, signs)
+  value[["log_abs"]] <- value[["log_abs"]] + log(length(coefficients))
+  value
+}
+
+delta2_polynomial <- function(r, estimator) {
+  powers <- rbind(c(4, 0, 0, 0, 0), c(2, 1, 0, 0, 0))
+  if (estimator == "WLE") return(polynomial_log(r, powers, c(-8, 5)))
+  powers <- rbind(powers, c(1, 0, 1, 0, 0))
+  polynomial_log(r, powers, c(-35, 30, -4))
+}
+
+delta3_polynomial <- function(r) {
+  powers <- rbind(c(1, 0, 0, 0, 1), c(0, 1, 0, 1, 0), c(0, 0, 2, 0, 0),
+                  c(2, 0, 0, 1, 0), c(1, 1, 1, 0, 0), c(0, 3, 0, 0, 0),
+                  c(3, 0, 1, 0, 0), c(2, 2, 0, 0, 0), c(4, 1, 0, 0, 0),
+                  c(6, 0, 0, 0, 0))
+  polynomial_log(r, powers, c(288, 288, 384, -5152, -16928, -2120,
+                             49552, 93388, -279274, 169263))
 }

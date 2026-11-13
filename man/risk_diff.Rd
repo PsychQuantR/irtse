@@ -42,6 +42,13 @@ this function uses scaled reports, multiplied by \code{sqrt(J)}.
 Exact enumeration stops above 2000 atoms or lattice width 1e6. The package
 stops instead of approximating. Missing or non-unique roots cause an error
 naming T. The optional rule is provisional; see \code{\link[=se_select]{se_select()}} for its scope.
+WLE roots are counted on a grid together with local extrema located by
+derivative sign changes between grid points. A pair of extrema inside one
+grid cell can still be missed; this count does not certify global uniqueness.
+Numerical computations use log scales and normalised cumulant ratios where
+needed. A result outside the range of double precision stops with an error
+containing \code{representable}, rather than returning a non-finite value or
+silently underflowing to zero.
 }
 \examples{
 risk_diff(rep(1, 4), rep(0, 4), 0, "MLE")

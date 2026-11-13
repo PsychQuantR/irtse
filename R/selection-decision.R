@@ -1,4 +1,5 @@
 selection_decision <- function(d2, d3, estimator, margin) {
+  finite_value(d2, "Delta_2")
   within <- abs(d2) <= margin
   if (within && estimator == "WLE") {
     return(list(choice = "none", within_margin = TRUE,
@@ -6,6 +7,7 @@ selection_decision <- function(d2, d3, estimator, margin) {
                                "because WLE has no Delta_3 coefficient.")))
   }
   coefficient <- if (within) d3 else d2
+  finite_value(coefficient, "selection coefficient")
   label <- if (within) "Delta_3" else "Delta_2"
   if (coefficient == 0) {
     return(list(choice = "none", within_margin = within,
