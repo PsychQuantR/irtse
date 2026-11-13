@@ -42,8 +42,19 @@ diagnostic built on them.
 
 ## Numerical accuracy and limits
 
-All computations are in double precision; the package says what it computes
-rather than promising the exact value for every input.
+Every exported function requires `1e-3 <= a_j <= 1e3`, `abs(b_j) <= 1e3`
+and `abs(theta) <= 1e3`, inclusive. The bounds are the doubles represented by
+the R literals `1e-3` and `1e3`. This range binds the supplied arguments only.
+Estimates and internal evaluation points may lie outside it and are neither
+rejected nor clamped, including root intervals and the window, grid points and
+`nearest_zero` of `se_diagnostic()`. For example, one item with `a = 1e-3` at
+its difficulty has WLE estimates at `b - 1000 * log(3)` and
+`b + 1000 * log(3)`. `risk_diff(..., margin = )` evaluates the selection rule
+at these estimates; supplying an estimate outside the range as `theta` to
+`se_select()` is rejected.
+
+All computations are in double precision. Inputs within the supported range
+remain subject to the following numerical limits.
 
 - At the supplied ability, information, coefficients and the law of T use the
   logits `a * (theta - b)` computed from the supplied inputs in double precision.
@@ -65,6 +76,11 @@ rather than promising the exact value for every input.
   "representable"; the package does not return `Inf`, `NaN`, or 0 in place of
   a non-zero value, except for a probability in `p_select` below the smallest
   positive double or the lattice identification described below.
+  For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
+  representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
+  because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
+  causes this error, though it cannot arise at the supplied ability within
+  the supported range, where logits have absolute value at most 2e6.
 - Discriminations are treated as commensurable only when their ratios are
   integers up to representation error (8 units in the last place), for example
   `c(0.1, 0.2, 0.3)`; otherwise every response pattern is its own atom.

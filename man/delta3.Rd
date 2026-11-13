@@ -23,6 +23,19 @@ A single item is valid; no response enumeration is needed.
 \description{
 Third-order coefficient of the scaled risk difference
 }
+\section{Supported range}{
+
+Every exported function requires \verb{1e-3 <= a_j <= 1e3}, \code{abs(b_j) <= 1e3}
+and \code{abs(theta) <= 1e3}, inclusive. The bounds are the doubles represented
+by the R literals \code{1e-3} and \code{1e3}. This range binds the supplied arguments only.
+Estimates and internal evaluation points may lie outside it and are neither
+rejected nor clamped. This includes root intervals and the window, grid points
+and \code{nearest_zero} of \code{se_diagnostic()}.
+With \code{margin}, \code{risk_diff()} evaluates the selection rule at every estimate,
+including estimates outside the range; supplying such an estimate as \code{theta}
+to \code{se_select()} is rejected.
+}
+
 \section{Numerical accuracy}{
 
 At the supplied ability, information, coefficients and the law of T use
@@ -35,8 +48,10 @@ zeros; a design average whose nonzero terms cancel to zero after rounding stops
 with \verb{not resolved}, except in the zero search of \code{se_diagnostic()}, where an
 unresolved average counts as a zero.
 Log scales and normalised cumulant ratios avoid intermediate overflow and
-underflow, while a nonzero result outside double precision, a non-finite logit,
-or a nonzero logit whose \code{tanh(eta / 2)} is zero stops with \code{representable}
+underflow. Inputs within the supported range can still yield a nonzero result
+outside double precision, as in \code{delta2(1, 0, 300, "MLE")}, or a nonzero logit
+whose \code{tanh(eta / 2)} is zero, as in \code{delta2(1, 0, 2^-1074, "MLE")}.
+These cases, and any non-finite logit, stop with \code{representable}
 (underflowed probabilities in \code{risk_diff()}'s \code{p_select} are returned as zero).
 Discriminations within 8 units in the last place of a commensurable design are
 treated as that design, so totals within this lattice tolerance are identified

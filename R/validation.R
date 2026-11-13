@@ -1,7 +1,14 @@
+supported_a_min <- 1e-3
+supported_magnitude_max <- 1e3
+
 validate_design <- function(a, b, theta) {
   if (!is.numeric(a) || !is.null(dim(a)) || !length(a) ||
       any(!is.finite(a)) || any(a <= 0)) {
     stop("a must be a non-empty numeric vector of finite positive values.",
+         call. = FALSE)
+  }
+  if (any(a < supported_a_min | a > supported_magnitude_max)) {
+    stop("a must have every value between 1e-3 and 1e3 (inclusive).",
          call. = FALSE)
   }
   if (!is.numeric(b) || !is.null(dim(b)) || length(b) != length(a) ||
@@ -9,8 +16,15 @@ validate_design <- function(a, b, theta) {
     stop("b must be a finite numeric vector with the same length as a.",
          call. = FALSE)
   }
+  if (any(abs(b) > supported_magnitude_max)) {
+    stop("b must have every value between -1e3 and 1e3 (inclusive).",
+         call. = FALSE)
+  }
   if (!is.numeric(theta) || length(theta) != 1L || !is.finite(theta)) {
     stop("theta must be a single finite number.", call. = FALSE)
+  }
+  if (abs(theta) > supported_magnitude_max) {
+    stop("theta must be between -1e3 and 1e3 (inclusive).", call. = FALSE)
   }
   invisible(NULL)
 }

@@ -2,6 +2,8 @@
 
 Unreleased development version.
 
+* Restrict supplied inputs to 1e-3 <= a_j <= 1e3, |b_j| <= 1e3 and |theta| <= 1e3 (inclusive); estimates and internal evaluation points remain unrestricted by these bounds.
+
 * Preserve supplied-ability logits, search diagnostic zeros in offsets from theta, reject unrepresentable logits, and clarify accuracy and lattice identification.
 
 * Numerical range and root accuracy: retain small-logit odd cumulants and

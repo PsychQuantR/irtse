@@ -1,3 +1,14 @@
+#' @section Supported range:
+#' Every exported function requires `1e-3 <= a_j <= 1e3`, `abs(b_j) <= 1e3`
+#' and `abs(theta) <= 1e3`, inclusive. The bounds are the doubles represented
+#' by the R literals `1e-3` and `1e3`. This range binds the supplied arguments only.
+#' Estimates and internal evaluation points may lie outside it and are neither
+#' rejected nor clamped. This includes root intervals and the window, grid points
+#' and `nearest_zero` of `se_diagnostic()`.
+#' With `margin`, `risk_diff()` evaluates the selection rule at every estimate,
+#' including estimates outside the range; supplying such an estimate as `theta`
+#' to `se_select()` is rejected.
+#'
 #' @section Numerical accuracy:
 #' At the supplied ability, information, coefficients and the law of T use
 #' `a * (theta - b)` computed from the supplied inputs in double precision;
@@ -9,8 +20,10 @@
 #' with `not resolved`, except in the zero search of `se_diagnostic()`, where an
 #' unresolved average counts as a zero.
 #' Log scales and normalised cumulant ratios avoid intermediate overflow and
-#' underflow, while a nonzero result outside double precision, a non-finite logit,
-#' or a nonzero logit whose `tanh(eta / 2)` is zero stops with `representable`
+#' underflow. Inputs within the supported range can still yield a nonzero result
+#' outside double precision, as in `delta2(1, 0, 300, "MLE")`, or a nonzero logit
+#' whose `tanh(eta / 2)` is zero, as in `delta2(1, 0, 2^-1074, "MLE")`.
+#' These cases, and any non-finite logit, stop with `representable`
 #' (underflowed probabilities in `risk_diff()`'s `p_select` are returned as zero).
 #' Discriminations within 8 units in the last place of a commensurable design are
 #' treated as that design, so totals within this lattice tolerance are identified
