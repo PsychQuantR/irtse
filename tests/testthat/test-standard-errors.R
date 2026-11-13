@@ -24,6 +24,13 @@ test_that("WLE roots for identical Rasch items", {
   )
 })
 
+# Requirement: Estimators on the sufficient statistic
+test_that("WLE equation without a unique root", {
+  # An independent 200001-point grid found three sign changes for T = 0
+  # and T = 31; the other attainable totals, 1 and 30, each have one.
+  expect_error(se_boot(c(1, 30), c(0, 0), 0, "WLE"), "multiple roots")
+})
+
 # Requirement: Exact law of the sufficient statistic
 test_that("1P with a common discrimination other than one", {
   expect_equal(
@@ -37,6 +44,25 @@ test_that("1P with a common discrimination other than one", {
     ) / 2,
     tolerance = 1e-10
   )
+})
+
+# Requirement: Exact law of the sufficient statistic
+test_that("Equal discriminations at extreme abilities", {
+  for (theta in c(30, 40)) {
+    for (estimator in c("MLE", "WLE")) {
+      # Keep checking the remaining combinations if one call errors.
+      tryCatch({
+        x <- se_boot(rep(1, 6), rep(0, 6), theta, estimator)
+        y <- se_boot(c(rep(1, 5), 1 + 1e-9), rep(0, 6), theta, estimator)
+
+        expect_true(is.finite(x))
+        expect_gt(x, 0)
+        expect_true(is.finite(y))
+        expect_gt(y, 0)
+        expect_equal(x, y, tolerance = 1e-6)
+      }, simpleError = function(error) fail(conditionMessage(error)))
+    }
+  }
 })
 
 # Requirement: Exact law of the sufficient statistic
@@ -89,6 +115,46 @@ test_that("Pattern path too large for se_boot", {
       "(?i)exact enumeration", perl = TRUE
     )
   }
+
+  # The message must identify the atom count as the reason for rejection.
+  expect_error(
+    se_boot(a = a, b = rep(0, 18), theta = 0, estimator = "MLE"), "atom"
+  )
+})
+
+# Requirement: Limits of exact enumeration
+test_that("Lattice limits", {
+  # An unmatched error must not prevent the remaining limit checks from running.
+  check_error_message <- function(code) {
+    tryCatch(force(code), simpleError = function(error) {
+      fail(conditionMessage(error))
+    })
+  }
+
+  check_error_message(expect_error(
+    se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
+    "lattice width", fixed = TRUE
+  ))
+  check_error_message(expect_error(
+    se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
+    "1000001", fixed = TRUE
+  ))
+  check_error_message(expect_error(
+    se_boot(c(1, 1000001/1000), c(0, 0), 0, "MLE"),
+    "1e6", fixed = TRUE
+  ))
+  check_error_message(expect_error(
+    se_boot(rep(c(1, 997), 600), rep(0, 1200), 0, "WLE"),
+    "atom", fixed = TRUE
+  ))
+  check_error_message(expect_error(
+    se_boot(rep(c(1, 997), 600), rep(0, 1200), 0, "WLE"),
+    "100000", fixed = TRUE
+  ))
+  expect_equal(
+    se_boot(c(1, 999), c(0, 0), 0, "MLE"), 0.007603208,
+    tolerance = 1e-6
+  )
 })
 
 # Requirement: Limits of exact enumeration
@@ -105,24 +171,85 @@ test_that("Pattern path too large for risk_diff", {
       "(?i)exact enumeration", perl = TRUE
     )
   }
+
+  # The message must identify the atom count as the reason for rejection.
+  expect_error(
+    risk_diff(a = a, b = rep(0, 12), theta = 0, estimator = "MLE"), "atom"
+  )
 })
 
 # Requirement: Input validation at the boundary
 test_that("Invalid inputs", {
-  expect_error(se_info(a = c(1, -1), b = c(0, 0), theta = 0), "a")
-  expect_error(se_info(a = c(1, 1), b = c(0, NA), theta = 0), "b")
-  expect_error(se_info(a = c(1, 1), b = 0, theta = 0), "b")
+  expect_error(se_info(a = c(1, -1), b = c(0, 0), theta = 0), "^a must")
+  expect_error(se_info(a = c(1, 1), b = c(0, NA), theta = 0), "^b must")
+  expect_error(se_info(a = c(1, 1), b = 0, theta = 0), "^b must")
   expect_error(
-    se_info(a = c(1, 1), b = c(0, 0), theta = c(0, 1)), "theta"
+    se_info(a = c(1, 1), b = c(0, 0), theta = c(0, 1)), "^theta must"
   )
   expect_error(
-    se_boot(a = c(1, 1), b = c(0, 0), theta = 0), "estimator"
+    se_boot(a = c(1, 1), b = c(0, 0), theta = 0), "^estimator must"
   )
   expect_error(
     se_boot(a = c(1, 1), b = c(0, 0), theta = 0, estimator = "EAP"),
-    "estimator"
+    "^estimator must"
   )
   expect_error(se_boot(a = 1, b = 0, theta = 0, estimator = "MLE"), "MLE")
+})
+
+# Requirement: Input validation at the boundary
+test_that("Validation in every exported function", {
+  expect_error(se_info(a = c(1, -1), b = c(0, 0), theta = 0), "^a must")
+  expect_error(
+    se_boot(a = c(1, -1), b = c(0, 0), theta = 0, estimator = "MLE"),
+    "^a must"
+  )
+  expect_error(
+    design_cumulants(a = c(1, -1), b = c(0, 0), theta = 0), "^a must"
+  )
+  expect_error(
+    delta2(a = c(1, -1), b = c(0, 0), theta = 0, estimator = "MLE"),
+    "^a must"
+  )
+  expect_error(
+    delta3(a = c(1, -1), b = c(0, 0), theta = 0, estimator = "MLE"),
+    "^a must"
+  )
+  expect_error(
+    risk_diff(
+      a = c(1, -1), b = c(0, 0), theta = 0, estimator = "MLE", margin = 1
+    ),
+    "^a must"
+  )
+  expect_error(
+    se_diagnostic(a = c(1, -1), b = c(0, 0), theta = 0, estimator = "MLE"),
+    "^a must"
+  )
+  expect_error(
+    se_select(
+      a = c(1, -1), b = c(0, 0), theta = 0, estimator = "MLE", margin = 1
+    ),
+    "^a must"
+  )
+
+  expect_error(
+    se_boot(a = c(1, 1), b = c(0, 0), theta = 0), "^estimator must"
+  )
+  expect_error(
+    delta2(a = c(1, 1), b = c(0, 0), theta = 0), "^estimator must"
+  )
+  expect_error(
+    delta3(a = c(1, 1), b = c(0, 0), theta = 0), "^estimator must"
+  )
+  expect_error(
+    risk_diff(a = c(1, 1), b = c(0, 0), theta = 0), "^estimator must"
+  )
+  expect_error(
+    se_diagnostic(a = c(1, 1), b = c(0, 0), theta = 0), "^estimator must"
+  )
+  expect_error(
+    se_select(a = c(1, 1), b = c(0, 0), theta = 0, margin = 1),
+    "^estimator must"
+  )
 })
 
 # Requirement: Package metadata and documentation

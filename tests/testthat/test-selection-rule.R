@@ -117,6 +117,21 @@ test_that("Decisions inside the margin", {
 })
 
 # Requirement: Explicit margin without a theoretical default
+test_that("No choice for the WLE inside the margin and for a zero Delta_3", {
+  r <- risk_diff(rep(1, 6), rep(0, 6), 0, "WLE", margin = 1e-8)
+
+  expect_true(is.na(r$smse_select))
+  expect_identical(names(r$p_select), c("info", "boot", "none"))
+  expect_lt(abs(r$p_select[["info"]] - 0.6875), 1e-12)
+  expect_lt(abs(r$p_select[["boot"]] - 0), 1e-12)
+  expect_lt(abs(r$p_select[["none"]] - 0.3125), 1e-12)
+
+  decision <- irtse:::selection_decision(0, 0, "MLE", 0)
+  expect_identical(decision$choice, "none")
+  expect_match(decision$reason, "Delta_3")
+})
+
+# Requirement: Explicit margin without a theoretical default
 test_that("Invalid margins", {
   expect_error(se_select(rep(1, 6), rep(0, 6), 0, "MLE"), "margin")
   expect_error(
@@ -130,6 +145,9 @@ test_that("Invalid margins", {
   )
   expect_error(
     se_select(rep(1, 6), rep(0, 6), 0, "MLE", margin = c(1, 2)), "margin"
+  )
+  expect_error(
+    risk_diff(rep(1, 6), rep(0, 6), 0, "MLE", margin = -1), "^margin must"
   )
 })
 
