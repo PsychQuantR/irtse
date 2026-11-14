@@ -1,4 +1,6 @@
 # Requirement: Selection by the second-order coefficient outside the margin
+# spec-example: irtse-risk-coefficients / Delta_2 table
+# spec-example: irtse-selection-rule / outside-the-margin decisions
 test_that("Decisions outside the margin", {
   cases <- list(
     list(a = rep(1, 6), b = rep(0, 6), theta = qlogis(3/10),
@@ -55,6 +57,7 @@ test_that("Decisions outside the margin", {
 })
 
 # Requirement: Third-order coefficient inside the margin
+# spec-example: irtse-selection-rule / inside-the-margin decisions
 test_that("Decisions inside the margin", {
   cases <- list(
     list(a = rep(1, 6), b = rep(0, 6), theta = 0, estimator = "MLE",
@@ -117,6 +120,7 @@ test_that("Decisions inside the margin", {
 })
 
 # Requirement: Explicit margin without a theoretical default
+# spec-example: irtse-selection-rule / explicit margin and no choice
 test_that("No choice for the WLE inside the margin and for a zero Delta_3", {
   r <- risk_diff(rep(1, 6), rep(0, 6), 0, "WLE", margin = 1e-8)
 
@@ -132,6 +136,7 @@ test_that("No choice for the WLE inside the margin and for a zero Delta_3", {
 })
 
 # Requirement: Explicit margin without a theoretical default
+# spec-example: irtse-selection-rule / explicit margin and no choice
 test_that("Invalid margins", {
   expect_error(se_select(rep(1, 6), rep(0, 6), 0, "MLE"), "margin")
   expect_error(
@@ -152,6 +157,7 @@ test_that("Invalid margins", {
 })
 
 # Requirement: Explicit margin without a theoretical default
+# spec-example: irtse-selection-rule / explicit margin and no choice
 test_that("Documented lack of guarantees", {
   getExportedValue("irtse", "se_select")
   rd_path <- testthat::test_path("..", "..", "man", "se_select.Rd")
@@ -168,6 +174,7 @@ test_that("Documented lack of guarantees", {
 })
 
 # Requirement: Documented scope of the selection rule
+# spec-example: irtse-selection-rule / documented selection scope
 test_that("Help page states the scope", {
   getExportedValue("irtse", "se_diagnostic")
   rd_path <- testthat::test_path("..", "..", "man", "se_select.Rd")
@@ -188,6 +195,7 @@ test_that("Help page states the scope", {
 })
 
 # Requirement: Documented scope of the selection rule
+# spec-example: irtse-selection-rule / documented selection scope
 test_that("README states the scope", {
   readme_path <- testthat::test_path("..", "..", "README.md")
   if (!file.exists(readme_path)) {
@@ -206,6 +214,7 @@ test_that("README states the scope", {
 })
 
 # Requirement: Diagnostic without choosing
+# spec-example: irtse-selection-rule / diagnostic table
 test_that("Diagnostic values", {
   cases <- list(
     list(a = rep(1, 6), b = rep(0, 6), theta = qlogis(3/10),
@@ -332,6 +341,7 @@ test_that("Diagnostic zero distances retain the supplied ability", {
 })
 
 # Requirement: Numerical range; Diagnostic without choosing
+# spec-example: irtse-selection-rule / diagnostic table
 test_that("Diagnostic offset search retains the known Rasch zero and distance", {
   theta <- qlogis(3/10)
   r <- se_diagnostic(rep(1, 6), rep(0, 6), theta, "MLE")

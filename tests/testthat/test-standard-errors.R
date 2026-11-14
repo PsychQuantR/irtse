@@ -1,4 +1,5 @@
 # Requirement: Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("MLE roots for identical Rasch items", {
   h0 <- sqrt((36 * log(5)^2 + 90 * log(2)^2) / 31)
 
@@ -10,6 +11,7 @@ test_that("MLE roots for identical Rasch items", {
 })
 
 # Requirement: Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("WLE roots for identical Rasch items", {
   totals <- 0:4
   roots <- qlogis((totals + 1/2) / 5)
@@ -32,6 +34,7 @@ test_that("WLE equation without a unique root", {
 })
 
 # Requirement: Exact law of the sufficient statistic
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("1P with a common discrimination other than one", {
   expect_equal(
     se_boot(
@@ -47,6 +50,7 @@ test_that("1P with a common discrimination other than one", {
 })
 
 # Requirement: Exact law of the sufficient statistic
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Equal discriminations at extreme abilities", {
   # Six identical Rasch items: the estimates have closed forms
   # (MLE log(T / (6 - T)), T = 1..5; WLE qlogis((T + 1/2) / 7), T = 0..6) and
@@ -78,6 +82,7 @@ test_that("Equal discriminations at extreme abilities", {
 })
 
 # Requirement: Exact law of the sufficient statistic
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Lattice path and pattern path agree", {
   a <- c(1, 2, 3, 1.5)
   pattern_a <- c(1, 2, 3, 1.5 * (1 + 1e-9))
@@ -93,6 +98,7 @@ test_that("Lattice path and pattern path agree", {
 })
 
 # Requirement: Information-based standard error
+# spec-example: irtse-standard-errors / information se for six rasch items
 test_that("Six identical Rasch items at their difficulty", {
   expect_equal(
     se_info(a = rep(1, 6), b = rep(0, 6), theta = 0),
@@ -102,6 +108,7 @@ test_that("Six identical Rasch items at their difficulty", {
 })
 
 # Requirement: Exact parametric-bootstrap standard error
+# spec-example: irtse-standard-errors / bootstrap se and scaled target
 test_that("Bootstrap SE is the scaled target divided by sqrt(J)", {
   expect_equal(
     se_boot(a = rep(1, 6), b = rep(0, 6), theta = 0, estimator = "MLE"),
@@ -135,6 +142,7 @@ test_that("Pattern path too large for se_boot", {
 })
 
 # Requirement: Limits of exact enumeration
+# spec-example: irtse-standard-errors / lattice enumeration limits
 test_that("Lattice limits", {
   # An unmatched error must not prevent the remaining limit checks from running.
   check_error_message <- function(code) {
@@ -191,6 +199,7 @@ test_that("Pattern path too large for risk_diff", {
 })
 
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / invalid inputs and the argument named in the error
 test_that("Invalid inputs", {
   expect_error(se_info(a = c(1, -1), b = c(0, 0), theta = 0), "^a must")
   expect_error(se_info(a = c(1, 1), b = c(0, NA), theta = 0), "^b must")
@@ -209,6 +218,7 @@ test_that("Invalid inputs", {
 })
 
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / invalid inputs and the argument named in the error
 test_that("Validation in every exported function", {
   expect_error(se_info(a = c(1, -1), b = c(0, 0), theta = 0), "^a must")
   expect_error(
@@ -265,6 +275,7 @@ test_that("Validation in every exported function", {
 })
 
 # Requirement: Package metadata and documentation
+# spec-example: irtse-standard-errors / readme statements and range
 test_that("README statements", {
   readme_path <- testthat::test_path("..", "..", "README.md")
   if (!file.exists(readme_path)) {
@@ -286,6 +297,7 @@ test_that("README statements", {
 })
 
 # Requirement: Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("Saturated probabilities do not stop the MLE at a wrong root", {
   root <- irtse:::estimate_atoms(1, c(1, 1), c(-40, 42), "MLE")
   expect_lt(abs(root - 1), 1e-12)
@@ -299,6 +311,7 @@ test_that("Saturated probabilities do not stop the MLE at a wrong root", {
 })
 
 # Requirement: Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("Shifted WLE designs", {
   shifted <- tryCatch(se_boot(1, 1000, 1000, "WLE"), error = identity)
   expect_type(shifted, "double")
@@ -308,6 +321,7 @@ test_that("Shifted WLE designs", {
 })
 
 # Requirement: Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("Two WLE roots inside one grid cell", {
   expect_error(
     se_boot(c(40, 41, 3.480672), c(0, 0.1, 0), 0, "WLE"),
@@ -316,6 +330,7 @@ test_that("Two WLE roots inside one grid cell", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / numerical range
 test_that("Extreme abilities and discriminations", {
   cases <- list(
     list(call = function() se_boot(rep(1, 6), rep(0, 6), 400, "MLE"),
@@ -497,6 +512,7 @@ test_that("Extreme risk targets preserve a representable standard deviation", {
 })
 
 # Requirement: Numerical range; Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / numerical range
 test_that("Underflowed score tails cannot certify a false MLE root", {
   expect_error(se_boot(c(1, 2), c(-1000, 1000), 0, "MLE"),
                "representable", fixed = TRUE)
@@ -514,6 +530,7 @@ test_that("An interval without a root stops with an error naming T", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / numerical range
 test_that("A coefficient outside double range stops the functions that return it", {
   # Delta_2 = -(9/8) exp(900) here: its sign is determined but the value is
   # not representable, and se_diagnostic() and se_select() return the value.
@@ -526,6 +543,7 @@ test_that("A coefficient outside double range stops the functions that return it
 
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / numerical range
 test_that("Extreme range rows require their specified values and errors", {
   expect_error(se_boot(c(1, 2), c(-1000, 1000), 0, "MLE"),
                "representable", fixed = TRUE)
@@ -534,11 +552,13 @@ test_that("Extreme range rows require their specified values and errors", {
 })
 
 # Requirement: Numerical range; Information-based standard error
+# spec-example: irtse-standard-errors / numerical range
 test_that("Information does not require representable higher cumulants", {
   expect_lt(abs(se_info(c(1, 1), c(0, 1000), 0) / 2 - 1), 1e-12)
 })
 
 # Requirement: Numerical range; Exact scaled risk of the selection rule
+# spec-example: irtse-standard-errors / numerical range
 test_that("Risk evaluates both MLE coefficients even outside the margin", {
   expect_error(risk_diff(c(1, 2), c(-150, 150), 0, "MLE", margin = 0),
                "representable", fixed = TRUE)
@@ -547,6 +567,7 @@ test_that("Risk evaluates both MLE coefficients even outside the margin", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / small logits
 test_that("Small logits keep their odd cumulants", {
   expect_lt(abs(design_cumulants(1, 0, 1e-18)[["k3"]] / -1.25e-19 - 1), 1e-10)
   expect_lt(abs(delta2(1, 0, 1e-18, "MLE") / -1.4e-35 - 1), 1e-10)
@@ -561,6 +582,7 @@ test_that("Small logits keep their odd cumulants", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("Large common shifts preserve law-based reports", {
   expect_lt(abs(se_boot(1, 1e3, 1e3, "WLE") / log(3) - 1), 1e-12)
   expect_lt(abs(se_boot(1, -1e3, -1e3, "WLE") / log(3) - 1), 1e-12)
@@ -591,6 +613,7 @@ test_that("Cancellation between items removes only exact opposite pairs", {
 })
 
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / invalid inputs and the argument named in the error
 test_that("One-item MLE errors start with the required prefix", {
   expect_error(se_boot(1, 0, 0, "MLE"), "^MLE requires")
 })
@@ -645,6 +668,7 @@ test_that("All source files exclude local paths and private tracker references",
 })
 
 # Requirement: Exact law of the sufficient statistic
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Nearly equal discriminations are not merged", {
   d <- 2^-40
   expected <- 2 * d / (1 + (1 + d)^2)
@@ -653,6 +677,7 @@ test_that("Nearly equal discriminations are not merged", {
 })
 
 # Requirement: Exact law of the sufficient statistic; Limits of exact enumeration
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Representation tolerance preserves decimal and earlier lattices", {
   expect_lt(abs(se_boot(c(0.1, 0.2, 0.3), c(0, 0, 0), 0, "WLE") /
                   (10 * se_boot(c(1, 2, 3), c(0, 0, 0), 0, "WLE")) - 1), 1e-10)
@@ -662,6 +687,7 @@ test_that("Representation tolerance preserves decimal and earlier lattices", {
 })
 
 # Requirement: Estimators on the sufficient statistic
+# spec-example: irtse-standard-errors / estimates and root checks
 test_that("Three WLE roots closer together than the grid are counted", {
   B <- acosh(4) + 1e-8
   expect_error(irtse:::estimate_atoms(2, rep(1, 3), c(-100, -B, B), "WLE"),
@@ -724,6 +750,7 @@ test_that("Law-based reports preserve exactly representable common shifts", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / inputs outside the supported range
 test_that("Delta_2 rejects a discrimination outside the supported range", {
   expect_error(delta2(c(1, 1e308), c(0, 10), 0, "MLE"),
                "^a must")
@@ -748,6 +775,8 @@ test_that("Bootstrap rejects a discrimination outside the supported range", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / numerical range
+# spec-example: irtse-standard-errors / inputs outside the supported range
 test_that("A nonzero logit whose half underflows is rejected", {
   expect_error(delta2(2^-1074, 0, 1, "MLE"), "^a must")
   expect_error(delta2(1, 0, 2^-1074, "MLE"), "representable", fixed = TRUE)
@@ -807,6 +836,7 @@ test_that("Score tails representable only as subnormal numbers are retained", {
 })
 
 # Requirement: Exact law of the sufficient statistic
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Identified design with separated difficulties keeps its symmetric root", {
   a <- c(1, 1 + 2^-50)
   b <- c(50, -50)
@@ -818,6 +848,7 @@ test_that("Identified design with separated difficulties keeps its symmetric roo
 })
 
 # Requirement: Exact law of the sufficient statistic
+# spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Identified designs give identical risks and rule reports at every atom", {
   a <- c(1, 1 + 2^-50, 1)
   b <- c(50, -50, 0)
@@ -845,6 +876,7 @@ test_that("Selection identifies only its law-based bootstrap report", {
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / errors from intermediate values
 test_that("Errors from intermediate values may stop an otherwise representable result", {
   cases <- list(
     list(call = function() {

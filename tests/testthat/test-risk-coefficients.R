@@ -1,4 +1,5 @@
 # Requirement: Design cumulants
+# spec-example: irtse-risk-coefficients / exact cumulants
 test_that("Cumulants of rational designs", {
   cases <- list(
     list(
@@ -45,6 +46,7 @@ test_that("Cumulants of rational designs", {
 })
 
 # Requirement: Second-order coefficient
+# spec-example: irtse-risk-coefficients / Delta_2 table
 test_that("Exact values of Delta_2", {
   cases <- list(
     list(a = 1, b = 0, theta = qlogis(3/10), estimator = "MLE",
@@ -112,6 +114,7 @@ test_that("Scaling under a common discrimination", {
 })
 
 # Requirement: Third-order coefficient
+# spec-example: irtse-risk-coefficients / Delta_3 table
 test_that("Exact values of Delta_3", {
   cases <- list(
     list(a = 1, b = 0, theta = 0, expected = -121/3),

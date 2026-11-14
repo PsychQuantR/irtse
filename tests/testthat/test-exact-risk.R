@@ -1,4 +1,5 @@
 # Requirement: Exact scaled risks
+# spec-example: irtse-exact-risk / selection risks near a zero
 test_that("Six identical Rasch items at their difficulty", {
   risk <- risk_diff(
     a = rep(1, 6), b = rep(0, 6), theta = 0, estimator = "MLE"
@@ -48,6 +49,7 @@ test_that("The plug-in exact-risk rule can be worse than both fixed reports", {
 })
 
 # Requirement: Exact scaled risks
+# spec-example: irtse-exact-risk / signs of D_J
 test_that("Sign of the risk difference along a repeated Rasch block", {
   cases <- data.frame(
     J = c(3, 6, 9, 12, 15, 18, 84, 87),
@@ -96,6 +98,7 @@ test_that("WLE risk difference for one hundred identical items", {
 })
 
 # Requirement: Exact scaled risk of the selection rule
+# spec-example: irtse-exact-risk / selection risks near a zero
 test_that("Both rules worse than both fixed reports near a zero of Delta_2", {
   risk <- risk_diff(
     a = rep(c(1, 2), 25), b = rep(c(-1/2, 1), 25), theta = 0.01805334808,
@@ -117,6 +120,7 @@ test_that("Both rules worse than both fixed reports near a zero of Delta_2", {
 })
 
 # Requirement: Exact scaled risk of the selection rule
+# spec-example: irtse-exact-risk / selection risks near a zero
 test_that("Without margin the list is unchanged", {
   result <- risk_diff(
     a = rep(1, 6), b = rep(0, 6), theta = 0, estimator = "MLE"

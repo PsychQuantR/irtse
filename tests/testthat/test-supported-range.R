@@ -1,4 +1,5 @@
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / the bounds of the supported range
 test_that("Supported range accepts each inclusive bound", {
   cases <- list(
     list(args = list(1e-3, 0, 0), expected = 2000),
@@ -14,6 +15,7 @@ test_that("Supported range accepts each inclusive bound", {
 })
 
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / the bounds of the supported range
 test_that("Supported range rejects the adjacent doubles and states the bounds", {
   cases <- list(
     list(args = list(1e-3 - 2^-62, 0, 0), argument = "a"),
@@ -35,6 +37,7 @@ test_that("Supported range rejects the adjacent doubles and states the bounds", 
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / inputs outside the supported range
 test_that("Inputs outside the supported range name the supplied argument", {
   cases <- list(
     list(call = function() delta2(1e-20, 0, 1, "MLE"), prefix = "^a must"),
@@ -105,6 +108,7 @@ test_that("Range validation follows a then b then theta before other arguments",
 })
 
 # Requirement: Package metadata and documentation
+# spec-example: irtse-standard-errors / readme statements and range
 test_that("README states the supported range", {
   readme_path <- testthat::test_path("..", "..", "README.md")
   if (!file.exists(readme_path)) {
@@ -134,6 +138,7 @@ test_that("All eight help pages state the supported range and its scope", {
 })
 
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / classed and named arguments
 test_that("Numeric arguments carrying a class are rejected at the boundary", {
   error_message <- function(expr) tryCatch({ force(expr); "" }, error = conditionMessage)
   cases <- list(
@@ -156,6 +161,7 @@ test_that("Numeric arguments carrying a class are rejected at the boundary", {
 
 # Requirement: Input validation at the boundary
 # Scenario: Numeric arguments that carry a class
+# spec-example: irtse-standard-errors / classed and named arguments
 test_that("A classed estimator is rejected even without class methods", {
   expect_error(se_boot(c(1, 1), c(0, 0), 0,
                        structure("WLE", class = "irtse_plain")), "^estimator must")

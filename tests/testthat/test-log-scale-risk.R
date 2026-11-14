@@ -98,6 +98,7 @@ test_that("An overflowing complete risk names smse_info", {
 
 # Requirement: Numerical range
 # Scenario: Extreme abilities and discriminations
+# spec-example: irtse-standard-errors / numerical range
 test_that("Unscaled zero score and information do not stop the root search", {
   expect_lt(abs(se_boot(rep(1000, 3), c(-1, 1, 1), 0, "MLE") /
                   ((1 + log(2) / 2000) * sqrt(2) * exp(-500)) - 1), 1e-6)
