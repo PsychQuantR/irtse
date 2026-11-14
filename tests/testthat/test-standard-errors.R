@@ -446,7 +446,7 @@ test_that("Package files contain no local paths or private issue references", {
                       full.names = TRUE, all.files = TRUE)
   source_r <- testthat::test_path("..", "..", "R")
   if (dir.exists(source_r)) paths <- c(paths, list.files(source_r, full.names = TRUE))
-  paths <- scannable_files(paths)
+  paths <- scannable_files(paths, installed = !dir.exists(source_r))
   forbidden_path <- posix_local_path_pattern()
   private_issue <- paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+")
   bad <- vapply(unique(paths), function(path) {
@@ -631,7 +631,7 @@ test_that("All source files exclude local paths and private tracker references",
     paths <- list.files(system.file(package = "irtse"), recursive = TRUE,
                         full.names = TRUE, all.files = TRUE)
   }
-  paths <- scannable_files(paths)
+  paths <- scannable_files(paths, installed = !dir.exists(file.path(source, "R")))
   patterns <- c(paste0("[A-Za-z]", ":", "\\\\"),
                 paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+"),
                 paste0("/", "issues", "/", "[0-9]+"))
@@ -777,10 +777,10 @@ test_that("Complex inputs name the invalid argument", {
 # Requirement: Package metadata and documentation
 test_that("Local path patterns catch POSIX and forward-slash drive paths", {
   forbidden <- c(paste0("/", "tmp", "/x.R"),
-                 paste0("/", "var", "/folders/x"),
+                 paste0("/", "var", "/", "folders", "/x"),
                  paste0("/", "private", "/x"),
-                 paste0("/", "srv", "/irtse/private.txt"),
-                 paste0("C", ":", "/work/x.R"))
+                 paste0("/", "srv", "/", "irtse", "/private.txt"),
+                 paste0("C", ":", "/", "work", "/x.R"))
   matches <- function(text) {
     any(vapply(additional_local_path_patterns(), function(pattern) {
       length(grepRaw(pattern, charToRaw(text))) > 0L
@@ -947,4 +947,49 @@ test_that("POSIX local paths start at a path boundary and exclude URL paths", {
       expect_false(matches(paste0(prefix, path)), info = paste(root, prefix))
     }
   }
+})
+
+# Requirement: Numerical range
+test_that("A positive risk below the smallest positive double is rejected", {
+  # 3 r^2 (sech(s r / 2) - sech(s theta / 2))^2 has log risk
+  # below log(2^-1074), although the reports differ from the target.
+  expect_error(risk_diff(rep(1000, 3), c(-1.44, 0, 1.44),
+                         -0.72 + 1e-9, "MLE"), "representable", fixed = TRUE)
+  expect_error(risk_diff(rep(512, 3), c(-2.8125, 0, 2.8125),
+                         -1.40625 + 2^-30, "MLE"), "representable", fixed = TRUE)
+  rounded <- risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot
+  expect_true(is.finite(rounded) && rounded >= 0 && rounded < 1e-100)
+})
+
+# Requirement: Package metadata and documentation
+test_that("Source scans retain serialized suffixes but installed scans omit them", {
+  paths <- c("pkg/tests/words.rds", "pkg/R/words.rdb", "pkg/R/words.rdx")
+  source <- tryCatch(scannable_files(paths, installed = FALSE),
+                     error = conditionMessage)
+  expect_identical(source, paths)
+  expect_identical(scannable_files(paths), character())
+})
+
+# Requirement: Package metadata and documentation
+test_that("Local path scans include unknown roots and exclude URL paths", {
+  path <- paste0("/", "unlisted-root", "/private.txt")
+  matches <- function(text) {
+    any(vapply(additional_local_path_patterns(), function(pattern) {
+      length(grepRaw(pattern, charToRaw(text))) > 0L
+    }, logical(1)))
+  }
+  expect_true(matches(path))
+  expect_true(matches(paste0("path=", path)))
+  expect_false(matches(paste0("https://example.org", path)))
+  expect_false(matches(paste0("relative", path)))
+})
+
+# Requirement: Package metadata and documentation
+test_that("R CMD build excludes a submodule git file", {
+  path <- testthat::test_path("..", "..", ".Rbuildignore")
+  if (!file.exists(path)) skip("Build ignore file not available in installed package")
+  patterns <- readLines(path, warn = FALSE)
+  expect_true(any(vapply(patterns, function(pattern) {
+    grepl(pattern, ".git", perl = TRUE, ignore.case = TRUE)
+  }, logical(1))))
 })

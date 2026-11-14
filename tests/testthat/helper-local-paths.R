@@ -6,15 +6,15 @@ posix_local_path_pattern <- function() {
 
 additional_local_path_patterns <- function() {
   c(posix_local_path_pattern(),
+    "(^|[^A-Za-z0-9._/:-])/[A-Za-z0-9._~-]+/[A-Za-z0-9._~/-]+",
     paste0("(^|[^A-Za-z])[A-Za-z]", ":", "/"))
 }
 
-# Files the scan for local paths can read as text. Serialized R files (the
-# lazy-load databases and .rds files of an installed package) are compressed,
-# so a pattern of three or four bytes meets them by chance; a version-control
-# folder is not part of the package and holds paths of the machine it is on.
-scannable_files <- function(paths) {
-  serialized <- grepl("[.](rdb|rdx|rds)$", paths, ignore.case = TRUE)
+# Installed lazy-load databases and RDS files are compressed, and can match
+# a short path pattern by chance. Source files are scanned regardless of suffix.
+# The default preserves installed-package callers; source scans opt in explicitly.
+scannable_files <- function(paths, installed = TRUE) {
+  serialized <- installed & grepl("[.](rdb|rdx|rds)$", paths, ignore.case = TRUE)
   version_control <- grepl("(^|/)[.]git(/|$)", paths)
   paths[!serialized & !version_control]
 }

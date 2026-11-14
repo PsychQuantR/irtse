@@ -132,3 +132,46 @@ test_that("All eight help pages state the supported range and its scope", {
     }
   }
 })
+
+# Requirement: Input validation at the boundary
+test_that("Numeric arguments carrying a class are rejected at the boundary", {
+  error_message <- function(expr) tryCatch({ force(expr); "" }, error = conditionMessage)
+  cases <- list(
+    list(call = function() se_info(stats::ts(c(1, 1), frequency = 2),
+                                   stats::ts(c(0, 0)), 0), prefix = "^a must"),
+    list(call = function() se_info(c(1, 1), stats::ts(c(0, 0)), 0),
+         prefix = "^b must"),
+    list(call = function() se_info(c(1, 1), c(0, 0),
+                                   structure(0, class = "units")), prefix = "^theta must"),
+    list(call = function() se_select(c(1, 1), c(0, 0), 0, "WLE",
+                                     margin = structure(0, class = "units")),
+         prefix = "^margin must"),
+    list(call = function() se_boot(structure(c(1, 1), class = "integer64"),
+                                   c(0, 0), 0, "WLE"), prefix = "^a must")
+  )
+  for (case in cases) expect_match(error_message(case$call()), case$prefix)
+  expect_lt(abs(se_info(c(x = 1, y = 1), c(u = 0, v = 0), c(t = 0)) /
+                  sqrt(2) - 1), 1e-12)
+})
+
+# Requirement: Input validation at the boundary
+test_that("Every exported function rejects classed numeric arguments in order", {
+  error_message <- function(expr) tryCatch({ force(expr); "" }, error = conditionMessage)
+  plain <- list(a = c(1, 1), b = c(0, 0), theta = 0)
+  for (name in c("se_info", "se_boot", "design_cumulants", "delta2", "delta3",
+                 "risk_diff", "se_diagnostic", "se_select")) {
+    fun <- getExportedValue("irtse", name)
+    args <- plain
+    if ("estimator" %in% names(formals(fun))) args$estimator <- "MLE"
+    if ("margin" %in% names(formals(fun))) args$margin <- 0
+    for (argument in intersect(c("a", "b", "theta", "margin"), names(args))) {
+      invalid <- args
+      invalid[[argument]] <- structure(invalid[[argument]], class = "units")
+      expect_match(error_message(do.call(fun, invalid)),
+                   paste0("^", argument, " must"), info = paste(name, argument))
+    }
+    args$a <- stats::ts(args$a, frequency = 2)
+    args$b <- stats::ts(args$b)
+    expect_match(error_message(do.call(fun, args)), "^a must", info = name)
+  }
+})
