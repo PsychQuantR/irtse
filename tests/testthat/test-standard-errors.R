@@ -909,6 +909,23 @@ test_that("README and help retain both item-level accuracy qualifications", {
   }
 })
 
+# Requirement: Numerical range
+# Scenario: Documents state what a risk difference of 0 means
+test_that("README and risk help explain a zero diff as not distinguished", {
+  texts <- list()
+  readme <- testthat::test_path("..", "..", "README.md")
+  if (file.exists(readme)) texts$README <- readLines(readme, warn = FALSE)
+  rd_path <- testthat::test_path("..", "..", "man", "risk_diff.Rd")
+  texts$risk_diff <- if (file.exists(rd_path)) readLines(rd_path, warn = FALSE) else {
+    as.character(tools::Rd_db("irtse")[["risk_diff.Rd"]])
+  }
+  for (name in names(texts)) {
+    text <- gsub("\\s+", " ", paste(texts[[name]], collapse = " "))
+    expect_match(text, "diff[^.]*not distinguished[^.]*double precision",
+                 info = name)
+  }
+})
+
 # Requirement: Package metadata and documentation
 test_that("The scan for local paths reads package text files only", {
   paths <- c("pkg/R/irtse.rdb", "pkg/R/irtse.rdx", "pkg/Meta/package.rds",
@@ -982,6 +999,27 @@ test_that("Local path scans include unknown roots and exclude URL paths", {
   expect_true(matches(paste0("path=", path)))
   expect_false(matches(paste0("https://example.org", path)))
   expect_false(matches(paste0("relative", path)))
+})
+
+# Requirement: Package metadata and documentation (package files contain no absolute local paths)
+# Design decision of the change irtse-log-scale-risk: the path pattern accepts spaces inside the first
+# folder name. This is a test of the scan itself; the specification has no Scenario of this name.
+test_that("Local path scans detect first folders with spaces without matching prose", {
+  matches <- function(text) {
+    any(vapply(additional_local_path_patterns(), function(pattern) {
+      length(grepRaw(pattern, charToRaw(text))) > 0L
+    }, logical(1)))
+  }
+  for (folder in c(paste("Project", "Files"), paste("Shared", "Project", "Files"))) {
+    expect_true(matches(paste0("/", folder, "/", "private.txt")))
+  }
+  controls <- c(paste("a", "/", "b", "/", "c"),
+                paste0("1", "/", "2 and 3", "/", "4"),
+                paste("k_r", "/", "k_2"),
+                paste0("+", "/", "- 1 and x", "/", "y"),
+                paste0("https:", "/", "/", "example.org", "/",
+                       paste("Project", "Files"), "/", "private.txt"))
+  for (text in controls) expect_false(matches(text))
 })
 
 # Requirement: Package metadata and documentation

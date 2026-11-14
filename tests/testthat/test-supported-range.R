@@ -155,6 +155,79 @@ test_that("Numeric arguments carrying a class are rejected at the boundary", {
 })
 
 # Requirement: Input validation at the boundary
+# Scenario: Numeric arguments that carry a class
+test_that("A classed estimator is rejected even without class methods", {
+  expect_error(se_boot(c(1, 1), c(0, 0), 0,
+                       structure("WLE", class = "irtse_plain")), "^estimator must")
+})
+
+with_trap_methods <- function(code) {
+  generics <- c("is.numeric", "is.character", "length", "dim", "is.finite",
+                "is.na", "as.character", "Ops", "Math", "Summary")
+  if (exists("mtfrm", baseenv())) generics <- c(generics, "mtfrm")
+  method_names <- paste0(generics, ".irtse_trap")
+  present <- vapply(method_names, exists, logical(1),
+                    envir = .GlobalEnv, inherits = FALSE)
+  previous <- mget(method_names[present], envir = .GlobalEnv, inherits = FALSE)
+  on.exit({
+    rm(list = method_names, envir = .GlobalEnv)
+    list2env(previous, envir = .GlobalEnv)
+  })
+  counter <- new.env(parent = emptyenv())
+  counter$calls <- 0L
+  for (method in method_names) {
+    assign(method, function(...) {
+      counter$calls <- counter$calls + 1L
+      stop("irtse trap method invoked", call. = FALSE)
+    }, envir = .GlobalEnv)
+  }
+  code(counter)
+}
+
+# Requirement: Input validation at the boundary
+# Scenario: A class whose methods raise errors
+test_that("All five arguments reject a live trap before any method runs", {
+  with_trap_methods(function(counter) {
+    x <- structure(c(1, 1), class = "irtse_trap")
+    message <- tryCatch(is.numeric(x), error = conditionMessage)
+    expect_identical(message, "irtse trap method invoked")
+    expect_identical(counter$calls, 1L)
+    plain <- list(a = c(1, 1), b = c(0, 0), theta = 0, estimator = "WLE", margin = 0)
+    for (argument in names(plain)) {
+      args <- plain
+      args[[argument]] <- structure(if (argument == "b") c(1, 1) else args[[argument]],
+                                    class = "irtse_trap")
+      counter$calls <- 0L
+      message <- tryCatch({ do.call(se_select, args); "" }, error = conditionMessage)
+      expect_match(message, paste0("^", argument, " must"))
+      expect_identical(counter$calls, 0L, info = argument)
+    }
+  })
+})
+
+# Requirement: Input validation at the boundary
+# Scenario: A class whose methods raise errors
+test_that("Every exported function rejects a trapped a before dispatch", {
+  with_trap_methods(function(counter) {
+    x <- structure(c(1, 1), class = "irtse_trap")
+    message <- tryCatch(is.numeric(x), error = conditionMessage)
+    expect_identical(message, "irtse trap method invoked")
+    expect_identical(counter$calls, 1L)
+    for (name in c("se_info", "se_boot", "design_cumulants", "delta2", "delta3",
+                   "risk_diff", "se_diagnostic", "se_select")) {
+      fun <- getExportedValue("irtse", name)
+      args <- list(a = x, b = c(0, 0), theta = 0)
+      if ("estimator" %in% names(formals(fun))) args$estimator <- "WLE"
+      if ("margin" %in% names(formals(fun))) args$margin <- 0
+      counter$calls <- 0L
+      message <- tryCatch({ do.call(fun, args); "" }, error = conditionMessage)
+      expect_match(message, "^a must")
+      expect_identical(counter$calls, 0L, info = name)
+    }
+  })
+})
+
+# Requirement: Input validation at the boundary
 test_that("Every exported function rejects classed numeric arguments in order", {
   error_message <- function(expr) tryCatch({ force(expr); "" }, error = conditionMessage)
   plain <- list(a = c(1, 1), b = c(0, 0), theta = 0)
