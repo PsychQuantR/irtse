@@ -7,6 +7,8 @@ posix_local_path_pattern <- function() {
 additional_local_path_patterns <- function() {
   c(posix_local_path_pattern(),
     "(^|[^A-Za-z0-9._/:-])/[A-Za-z0-9._~-]+/[A-Za-z0-9._~/-]+",
+    paste0("(^|[^A-Za-z0-9._/:-])/[A-Za-z][A-Za-z0-9._~-]*",
+           "( [A-Za-z0-9._~-]+){1,3}/[^[:space:]]"),
     paste0("(^|[^A-Za-z])[A-Za-z]", ":", "/"))
 }
 

@@ -2,6 +2,15 @@
 
 Unreleased development version.
 
+* Sum all four scaled risks on the log scale, retaining representable terms
+  despite underflowing weights or overflowing squared reports. Reject risks
+  below `2^-1074`, even when ordinary arithmetic would round them up, and name
+  the field in range errors. Exactly cancelling `diff` terms return 0: the two
+  risks are not distinguished in double precision.
+
+* Reject classed numeric arguments and classed `estimator` values before any
+  class method is called; continue to accept named plain numeric vectors.
+
 * Form weighted score terms on the log scale and locate roots from a common
   scale for the function and derivative, including beyond the double range.
 

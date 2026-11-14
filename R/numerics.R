@@ -151,12 +151,23 @@ reference_coordinates <- function(b) {
        reference = reference)
 }
 
-# Inspect only zero sums: keep ordinary arithmetic (and its last digits) otherwise.
-checked_zero_risk <- function(value, logs, first, second = first, what) {
-  if (!is.finite(value) || value != 0) return(value)
-  keep <- first != 0 & second != 0 & is.finite(logs)
-  if (!any(keep)) return(value)
-  terms <- logs[keep] + log(abs(first[keep])) + log(abs(second[keep]))
-  if (max(terms) < log(2^-1074)) representation_error(paste("scaled risk", what))
-  value
+# Form complete terms before exponentiating so weights and partial products
+# cannot underflow, and squared reports cannot overflow, on their own.
+scaled_risk_sum <- function(logs, first, second = first, what) {
+  label <- paste("scaled risk", what)
+  if (any(!is.finite(logs)) || any(!is.finite(first)) || any(!is.finite(second))) {
+    representation_error(label)
+  }
+  keep <- first != 0 & second != 0
+  if (!any(keep)) return(0)
+  log_abs <- logs[keep] + log(abs(first[keep])) + log(abs(second[keep]))
+  signs <- sign(first[keep]) * sign(second[keep])
+  largest <- max(log_abs)
+  total <- sum(signs * exp(log_abs - largest))
+  if (total == 0) return(0)
+  log_value <- largest + log(abs(total))
+  if (log_value < log(2^-1074)) representation_error(label)
+  value <- sign(total) * exp(log_value)
+  if (value == 0) representation_error(label)
+  finite_value(value, label)
 }

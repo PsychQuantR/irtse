@@ -8,9 +8,9 @@
 #' With `margin`, `risk_diff()` evaluates the selection rule at every estimate,
 #' including estimates outside the range; supplying such an estimate as `theta`
 #' to `se_select()` is rejected.
-#' Numeric arguments (`a`, `b`, `theta`, `margin`) that carry a class are rejected
-#' before arithmetic; plain numeric vectors with names are accepted and their
-#' names are ignored.
+#' Numeric arguments (`a`, `b`, `theta`, `margin`) and `estimator` that carry a
+#' class are rejected before any class method is called; plain numeric vectors
+#' with names are accepted and their names are ignored.
 #'
 #' @section Numerical accuracy:
 #' At the supplied ability, information and coefficients use
@@ -27,8 +27,10 @@
 #' unresolved average counts as a zero.
 #' Log scales and normalised cumulant ratios reduce intermediate overflow and
 #' underflow. A call can still stop with `representable` when an intermediate
-#' value, such as a scaled cumulant ratio or a squared report before its weight
-#' is applied, is not representable, even if the returned quantity would be.
+#' value, such as a scaled cumulant ratio, is not representable, even if the
+#' returned quantity would be. The four scaled risks (`smse_info`, `smse_boot`,
+#' `diff`, `smse_select`) are summed on the log scale: an unrepresentable weight,
+#' squared difference or partial product does not prevent a representable risk.
 #' Weighted score terms are formed on the log scale, including the discrimination.
 #' The function and its derivative use the same scale at each point for signs,
 #' exact-zero tests and Newton steps, so the location of a root does not depend
@@ -50,8 +52,13 @@
 #' A third exception to nonzero results is a risk term whose report agrees with
 #' its target to within rounding: its squared difference is zero. For example,
 #' `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
-#' though the mathematical risk is positive. A positive risk that underflows
-#' stops the call with `representable`. A risk that is itself a subnormal number
-#' has few significant bits. For `diff`, a term is zero when either factor in
-#' `w * (A - B) * (A + B - 2 * h)` is exactly zero; cancelling positive and negative
-#' parts can also give zero, but underflow of nonzero terms cannot.
+#' though the mathematical risk is positive. A positive risk below `2^-1074`
+#' stops the call with `representable` and the field name, even when ordinary
+#' arithmetic would round it up to `2^-1074`. A risk that is itself a subnormal
+#' number has few significant bits. For `diff`, a term is zero when either
+#' factor in `w * (A - B) * (A + B - 2 * h)` is exactly zero. As a fourth exception,
+#' when the positive and negative terms of `diff`, scaled by the largest absolute
+#' term, cancel to exactly 0, the function returns 0. A `diff` of 0 means the two
+#' risks are not distinguished in double precision, not that they are equal.
+#' A nonzero `diff` with absolute value below `2^-1074` stops the call with
+#' `representable` and the field name.

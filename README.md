@@ -50,9 +50,9 @@ rejected nor clamped, including root intervals and the window, grid points and
 its difficulty has WLE estimates at `b - 1000 * log(3)` and
 `b + 1000 * log(3)`. `risk_diff(..., margin = )` evaluates the selection rule
 at these estimates; supplying an estimate outside the range as `theta` to
-`se_select()` is rejected. Numeric arguments (`a`, `b`, `theta`, `margin`)
-that carry a class are rejected before arithmetic; plain numeric vectors with
-names are accepted and their names are ignored.
+`se_select()` is rejected. Numeric arguments (`a`, `b`, `theta`, `margin`) and
+`estimator` that carry a class are rejected before any class method is called;
+plain numeric vectors with names are accepted and their names are ignored.
 
 All computations are in double precision. Inputs within the supported range
 remain subject to the following numerical limits.
@@ -78,8 +78,10 @@ remain subject to the following numerical limits.
   and lose further accuracy near their own zeros.
 - Log scales and normalised cumulant ratios reduce intermediate overflow and
   underflow. A call can still stop with "representable" when an intermediate
-  value, such as a scaled cumulant ratio or a squared report before its weight
-  is applied, is not representable, even if the returned quantity would be.
+  value, such as a scaled cumulant ratio, is not representable, even if the
+  returned quantity would be. The four scaled risks (`smse_info`, `smse_boot`,
+  `diff`, `smse_select`) are summed on the log scale: an unrepresentable weight,
+  squared difference or partial product does not prevent a representable risk.
   Weighted score terms are formed on the log scale, including the
   discrimination. The function and its derivative use the same scale at each
   point for signs, exact-zero tests and Newton steps, so the location of a root
@@ -88,15 +90,21 @@ remain subject to the following numerical limits.
 - A value outside the range of double precision stops with an error containing
   "representable"; the package does not return `Inf`, `NaN`, or 0 in place of
   a non-zero value, except for a probability in `p_select` below the smallest
-  positive double, the lattice identification described below, or a risk term
-  whose report agrees with its target to within rounding. In the third case,
+  positive double, the lattice identification described below, a risk term
+  whose report agrees with its target to within rounding, or exactly cancelling
+  terms of `diff`. In the third case,
   the squared difference is zero; for example,
   `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
-  though the mathematical risk is positive. A positive risk that underflows
-  stops the call with "representable". A risk that is itself a subnormal number
-  has few significant bits. For `diff`, a term is zero when either factor in
-  `w * (A - B) * (A + B - 2 * h)` is exactly zero; cancelling positive and
-  negative parts can also give zero, but underflow of nonzero terms cannot.
+  though the mathematical risk is positive. A positive risk below `2^-1074`
+  stops the call with "representable" and the field name, even when ordinary
+  arithmetic would round it up to `2^-1074`. A risk that is itself a subnormal
+  number has few significant bits. For `diff`, a term is zero when either factor
+  in `w * (A - B) * (A + B - 2 * h)` is exactly zero. As a fourth exception, when
+  the positive and negative terms of `diff`, scaled by the largest absolute term,
+  cancel to exactly 0, the function returns 0. A `diff` of 0 means the two risks
+  are not distinguished in double precision, not that they are equal.
+  A nonzero `diff` with absolute value below `2^-1074` stops the call with
+  "representable" and the field name.
   For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
   representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
   because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
