@@ -923,6 +923,9 @@ test_that("README and risk help explain a zero diff as not distinguished", {
     text <- gsub("\\s+", " ", paste(texts[[name]], collapse = " "))
     expect_match(text, "diff[^.]*not distinguished[^.]*double precision",
                  info = name)
+    expect_match(text, paste0("risk within a relative 1e-12[^.]*2\\^-1074[^.]*",
+                              "or of the largest double can either be returned ",
+                              "or stop the call"), info = name)
   }
 })
 
@@ -1002,7 +1005,7 @@ test_that("Local path scans include unknown roots and exclude URL paths", {
 })
 
 # Requirement: Package metadata and documentation (package files contain no absolute local paths)
-# Design decision of the change irtse-log-scale-risk: the path pattern accepts spaces inside the first
+# Design decision of the change irtse-risk-accuracy-limits: the path pattern accepts spaces inside the first
 # folder name. This is a test of the scan itself; the specification has no Scenario of this name.
 test_that("Local path scans detect first folders with spaces without matching prose", {
   matches <- function(text) {
@@ -1010,7 +1013,10 @@ test_that("Local path scans detect first folders with spaces without matching pr
       length(grepRaw(pattern, charToRaw(text))) > 0L
     }, logical(1)))
   }
-  for (folder in c(paste("Project", "Files"), paste("Shared", "Project", "Files"))) {
+  for (folder in c(paste("Project", "Files"), paste("Shared", "Project", "Files"),
+                   paste("Shared", "Research", "Project", "Data", "Files"),
+                   paste("Project", "", "Files"), paste("2", "Project", "Files"),
+                   paste("Project", "&", "Files"))) {
     expect_true(matches(paste0("/", folder, "/", "private.txt")))
   }
   controls <- c(paste("a", "/", "b", "/", "c"),
@@ -1018,7 +1024,9 @@ test_that("Local path scans detect first folders with spaces without matching pr
                 paste("k_r", "/", "k_2"),
                 paste0("+", "/", "- 1 and x", "/", "y"),
                 paste0("https:", "/", "/", "example.org", "/",
-                       paste("Project", "Files"), "/", "private.txt"))
+                       paste("Project", "Files"), "/", "private.txt"),
+                # Two closing HTML tags with text between them, as in an installed help index.
+                paste0("<", "/", "div><h2>Documentation for package irtse<", "/", "h2>"))
   for (text in controls) expect_false(matches(text))
 })
 

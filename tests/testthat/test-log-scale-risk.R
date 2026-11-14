@@ -2,6 +2,16 @@ risk_error_message <- function(expr) {
   tryCatch({ force(expr); "" }, error = conditionMessage)
 }
 
+upper_risk_outcome_conforms <- function(expr) {
+  value <- tryCatch(force(expr), error = identity)
+  if (inherits(value, "error")) {
+    return(grepl("scaled risk smse_info is not representable",
+                 conditionMessage(value), fixed = TRUE))
+  }
+  is.numeric(value) && length(value) == 1L && is.finite(value) &&
+    abs(value / .Machine$double.xmax - 1) <= 1e-12
+}
+
 # Requirement: Numerical range
 # Scenario: A positive risk below the smallest positive double
 test_that("Positive risks below the smallest double name smse_boot", {
@@ -24,6 +34,51 @@ test_that("Subnormal risks are accurate to one smallest-double spacing", {
                        -0.72 + displacements[[i]], "MLE")$smse_boot
     expect_lte(abs(value / 2^-1074 - units[[i]]), 1)
   }
+})
+
+# Requirement: Numerical range
+# Scenario: A risk representable only as a subnormal number
+test_that("Upper subnormal risks meet the relative accuracy bound", {
+  for (K in c(712, 714, 716)) {
+    r <- K / 512
+    got <- risk_diff(rep(512, 3), c(-2 * r, 0, 2 * r), 2 * r, "MLE")$smse_boot
+    u <- r * exp(-K / 2)
+    # The operands stay normal until this final multiplication.
+    want <- (2 * u) * (6 * u)
+    expect_lte(abs(got / want - 1), 1e-12)
+  }
+})
+
+# Requirement: Numerical range
+# Scenario: A risk representable only as a subnormal number
+test_that("An exact subnormal power meets the relative accuracy bound", {
+  got <- irtse:::scaled_risk_sum(0, 2^-512, what = "smse_boot")
+  expect_lte(abs(got / 2^-1024 - 1), 1e-12)
+})
+
+# Requirement: Numerical range
+# Scenario: A risk at the upper end of the double range
+test_that("Risks outside the upper boundary band have one permitted outcome", {
+  B0 <- 1042 * log(2) / 512
+  B <- B0 * (1 - 1e-9)
+  got <- risk_diff(rep(512, 2), c(-B, B), 0, "MLE")$smse_info
+  want <- exp(512 * B - 2 * log(512))
+  expect_lte(abs(got / want - 1), 1e-12)
+  B <- B0 * (1 + 1e-9)
+  expect_error(risk_diff(rep(512, 2), c(-B, B), 0, "MLE"),
+               "scaled risk smse_info is not representable", fixed = TRUE)
+})
+
+# Requirement: Numerical range
+# Scenario: A risk at the upper end of the double range
+test_that("Risks inside the upper boundary band have two permitted outcomes", {
+  B0 <- 1042 * log(2) / 512
+  expect_true(upper_risk_outcome_conforms(
+    risk_diff(rep(512, 2), c(-B0, B0), 0, "MLE")$smse_info
+  ))
+  expect_true(upper_risk_outcome_conforms(
+    irtse:::scaled_risk_sum(0, 2^512, what = "smse_info")
+  ))
 })
 
 # Requirement: Numerical range

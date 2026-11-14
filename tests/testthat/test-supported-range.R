@@ -168,6 +168,11 @@ with_trap_methods <- function(code) {
   method_names <- paste0(generics, ".irtse_trap")
   present <- vapply(method_names, exists, logical(1),
                     envir = .GlobalEnv, inherits = FALSE)
+  for (method in method_names[present]) {
+    if (bindingIsActive(method, .GlobalEnv) || bindingIsLocked(method, .GlobalEnv)) {
+      testthat::skip(paste("Trap method binding is active or locked:", method))
+    }
+  }
   previous <- mget(method_names[present], envir = .GlobalEnv, inherits = FALSE)
   on.exit({
     rm(list = method_names, envir = .GlobalEnv)
@@ -183,6 +188,22 @@ with_trap_methods <- function(code) {
   }
   code(counter)
 }
+
+# Requirement: Input validation at the boundary
+# Scenario: A class whose methods raise errors
+# Design decision: The trap tests are skipped when a method name is an active or locked binding.
+test_that("The trap helper skips and preserves an existing active binding", {
+  method <- "is.numeric.irtse_trap"
+  skip_if(exists(method, envir = .GlobalEnv, inherits = FALSE),
+          "The active-binding test needs an unused method name")
+  makeActiveBinding(method, function(value) {
+    if (missing(value)) function(...) TRUE else invisible(NULL)
+  }, .GlobalEnv)
+  on.exit(rm(list = method, envir = .GlobalEnv), add = TRUE)
+  expect_condition(with_trap_methods(function(counter) NULL),
+                   regexp = method, class = "skip")
+  expect_true(bindingIsActive(method, .GlobalEnv))
+})
 
 # Requirement: Input validation at the boundary
 # Scenario: A class whose methods raise errors

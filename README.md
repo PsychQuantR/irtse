@@ -97,8 +97,16 @@ remain subject to the following numerical limits.
   `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
   though the mathematical risk is positive. A positive risk below `2^-1074`
   stops the call with "representable" and the field name, even when ordinary
-  arithmetic would round it up to `2^-1074`. A risk that is itself a subnormal
-  number has few significant bits. For `diff`, a term is zero when either factor
+  arithmetic would round it up to `2^-1074`. The value of a scaled risk is
+  rebuilt from its logarithm, so near the ends of the double range its relative
+  error is of the order of 1e-13. A subnormal risk is not claimed to be within
+  one spacing of the exact value. A risk that is itself a subnormal number has
+  few significant bits. A risk within a relative 1e-12 of `2^-1074` or of the
+  largest double can either be returned or stop the call.
+  For `diff`, cancellation multiplies the errors of its terms by its condition
+  number (the sum of the absolute terms divided by the absolute sum). Neither
+  the boundary band nor the subnormal examples bounds the relative error of a
+  `diff` whose terms cancel. For `diff`, a term is zero when either factor
   in `w * (A - B) * (A + B - 2 * h)` is exactly zero. As a fourth exception, when
   the positive and negative terms of `diff`, scaled by the largest absolute term,
   cancel to exactly 0, the function returns 0. A `diff` of 0 means the two risks

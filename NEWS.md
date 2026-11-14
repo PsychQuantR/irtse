@@ -2,6 +2,12 @@
 
 Unreleased development version.
 
+* Clarify scaled-risk accuracy near both ends of the double range: rebuilding
+  from a logarithm gives relative errors of the order of 1e-13, subnormal risks
+  are not guaranteed to be within one spacing, and risks within a relative
+  1e-12 of either boundary may be returned or stop the call. Cancellation in
+  `diff` amplifies the errors of its terms.
+
 * Sum all four scaled risks on the log scale, retaining representable terms
   despite underflowing weights or overflowing squared reports. Reject risks
   below `2^-1074`, even when ordinary arithmetic would round them up, and name
