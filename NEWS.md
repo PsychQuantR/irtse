@@ -2,11 +2,12 @@
 
 Unreleased development version.
 
-* Clarify scaled-risk accuracy near both ends of the double range: rebuilding
-  from a logarithm gives relative errors of the order of 1e-13, subnormal risks
-  are not guaranteed to be within one spacing, and risks within a relative
-  1e-12 of either boundary may be returned or stop the call. Cancellation in
-  `diff` amplifies the errors of its terms.
+* Clarify scaled-risk accuracy near both ends of the double range: rounding the
+  logarithm from which a risk is rebuilt contributes a relative error of the
+  order of 1e-13, rounding the result to a subnormal double can contribute much
+  more, subnormal risks are not guaranteed to be within one spacing, and risks
+  within a relative 1e-12 of either boundary may be returned or stop the call.
+  Cancellation in `diff` amplifies the errors of its terms.
 
 * Sum all four scaled risks on the log scale, retaining representable terms
   despite underflowing weights or overflowing squared reports. Reject risks

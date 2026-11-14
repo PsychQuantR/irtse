@@ -909,6 +909,21 @@ test_that("README and help retain both item-level accuracy qualifications", {
   }
 })
 
+normalise_document_text <- function(text) {
+  text <- paste(text, collapse = " ")
+  text <- gsub(paste0("\\\\code[[:space:]]*\\{[[:space:]]*",
+                      "((?:[^{}\\\\]|\\\\.)*?)[[:space:]]*\\}"),
+               "\\1", text, perl = TRUE)
+  text <- gsub("\\\\([%{}^])", "\\1", text, perl = TRUE)
+  text <- gsub("`", "", text, fixed = TRUE)
+  gsub("[[:space:]]+", " ", text)
+}
+
+has_risk_boundary_band <- function(text) {
+  grepl(paste0("risk within a relative 1e-12 of 2^-1074 or of the largest double ",
+               "can either be returned or stop the call"), text, fixed = TRUE)
+}
+
 # Requirement: Numerical range
 # Scenario: Documents state what a risk difference of 0 means
 test_that("README and risk help explain a zero diff as not distinguished", {
@@ -923,10 +938,46 @@ test_that("README and risk help explain a zero diff as not distinguished", {
     text <- gsub("\\s+", " ", paste(texts[[name]], collapse = " "))
     expect_match(text, "diff[^.]*not distinguished[^.]*double precision",
                  info = name)
-    expect_match(text, paste0("risk within a relative 1e-12[^.]*2\\^-1074[^.]*",
-                              "or of the largest double can either be returned ",
-                              "or stop the call"), info = name)
+    text <- normalise_document_text(texts[[name]])
+    expect_true(has_risk_boundary_band(text), info = name)
+    expect_match(text, paste0("Rounding that logarithm alone contributes a relative ",
+                              "error of the order of 1e-13"), fixed = TRUE, info = name)
+    expect_match(text, paste0("rounding the result to a subnormal double can give ",
+                              "a much larger relative error"), fixed = TRUE, info = name)
+    expect_match(text, paste0("does not prevent a representable risk, apart from a risk ",
+                              "inside the band at the two ends of the double range"),
+                 fixed = TRUE, info = name)
+    expect_false(grepl(paste0("near the ends of the double range its relative error ",
+                              "is of the order of 1e-13"), text, fixed = TRUE), info = name)
   }
+})
+
+# Requirement: Numerical range
+# Scenario: Documents state what a risk difference of 0 means
+test_that("The risk boundary band check requires complete numbers", {
+  expect_false(has_risk_boundary_band(paste0(
+    "A risk within a relative 1e-120 of 2^-1074 or of the largest double ",
+    "can either be returned or stop the call.")))
+  expect_false(has_risk_boundary_band(paste0(
+    "A risk within a relative 1e-12 of 12^-1074 or of the largest double ",
+    "can either be returned or stop the call.")))
+  expect_true(has_risk_boundary_band(paste0(
+    "A risk within a relative 1e-12 of 2^-1074 or of the largest double ",
+    "can either be returned or stop the call.")))
+})
+
+# Requirement: Numerical range
+# Scenario: Documents state what a risk difference of 0 means
+test_that("No source help page claims a general relative accuracy near the limits", {
+  man <- testthat::test_path("..", "..", "man")
+  if (!dir.exists(man)) skip("Source help pages not available in installed package")
+  paths <- list.files(man, pattern = "[.]Rd$", full.names = TRUE)
+  bad <- vapply(paths, function(path) {
+    text <- normalise_document_text(readLines(path, warn = FALSE))
+    grepl(paste0("near the ends of the double range its relative error ",
+                 "is of the order of 1e-13"), text, fixed = TRUE)
+  }, logical(1))
+  expect_false(any(bad), info = paste(basename(paths[bad]), collapse = ", "))
 })
 
 # Requirement: Package metadata and documentation

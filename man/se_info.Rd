@@ -60,7 +60,9 @@ underflow. A call can still stop with \code{representable} when an intermediate
 value, such as a scaled cumulant ratio, is not representable, even if the
 returned quantity would be. The four scaled risks (\code{smse_info}, \code{smse_boot},
 \code{diff}, \code{smse_select}) are summed on the log scale: an unrepresentable weight,
-squared difference or partial product does not prevent a representable risk.
+squared difference or partial product does not prevent a representable risk,
+apart from a risk inside the band at the two ends of the double range described
+below.
 Weighted score terms are formed on the log scale, including the discrimination.
 The function and its derivative use the same scale at each point for signs,
 exact-zero tests and Newton steps, so the location of a root does not depend
@@ -85,11 +87,16 @@ its target to within rounding: its squared difference is zero. For example,
 though the mathematical risk is positive. A positive risk below \code{2^-1074}
 stops the call with \code{representable} and the field name, even when ordinary
 arithmetic would round it up to \code{2^-1074}. The value of a scaled risk is
-rebuilt from its logarithm, so near the ends of the double range its relative
-error is of the order of 1e-13. A subnormal risk is not claimed to be within
-one spacing of the exact value. A risk that is itself a subnormal number has
-few significant bits. A risk within a relative 1e-12 of \code{2^-1074} or of the
-largest double can either be returned or stop the call.
+rebuilt from its logarithm. Rounding that logarithm alone contributes a relative
+error of the order of 1e-13 where the logarithm is near 700 in absolute value;
+errors already in the reports and log weights add to it, and so does rounding
+the result to a double. A risk that is itself a subnormal number is a multiple
+of \code{2^-1074}, so rounding the result to a subnormal double can give a much larger
+relative error: a risk of 1.6 such spacings is returned as 2. A subnormal risk
+is not claimed to be within one spacing of the exact value, and no general
+bound on the relative error of a returned risk is claimed.
+A risk within a relative 1e-12 of \code{2^-1074} or of the largest double can either
+be returned or stop the call.
 For \code{diff}, cancellation multiplies the errors of its terms by its condition
 number (the sum of the absolute terms divided by the absolute sum). Neither
 the boundary band nor the subnormal examples bounds the relative error of a

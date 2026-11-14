@@ -207,6 +207,35 @@ test_that("The trap helper skips and preserves an existing active binding", {
 
 # Requirement: Input validation at the boundary
 # Scenario: A class whose methods raise errors
+# Design decision: The locked half of the guard of the trap helper has its own test.
+test_that("The trap helper skips and preserves an existing locked binding", {
+  method <- "is.numeric.irtse_trap"
+  skip_if(exists(method, envir = .GlobalEnv, inherits = FALSE),
+          "The locked-binding test needs an unused method name")
+  value <- 42L
+  assign(method, value, envir = .GlobalEnv)
+  lockBinding(method, .GlobalEnv)
+  on.exit({
+    if (exists(method, envir = .GlobalEnv, inherits = FALSE)) {
+      if (bindingIsLocked(method, .GlobalEnv)) unlockBinding(method, .GlobalEnv)
+      rm(list = method, envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+  ran <- FALSE
+  condition <- tryCatch(with_trap_methods(function(counter) {
+    ran <<- TRUE
+  }), skip = identity, error = identity)
+  expect_s3_class(condition, "skip")
+  expect_match(conditionMessage(condition), method, fixed = TRUE)
+  expect_false(ran)
+  expect_true(exists(method, envir = .GlobalEnv, inherits = FALSE))
+  expect_true(bindingIsLocked(method, .GlobalEnv))
+  expect_false(bindingIsActive(method, .GlobalEnv))
+  expect_identical(get(method, envir = .GlobalEnv, inherits = FALSE), value)
+})
+
+# Requirement: Input validation at the boundary
+# Scenario: A class whose methods raise errors
 test_that("All five arguments reject a live trap before any method runs", {
   with_trap_methods(function(counter) {
     x <- structure(c(1, 1), class = "irtse_trap")

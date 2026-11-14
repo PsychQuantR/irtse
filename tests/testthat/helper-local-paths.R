@@ -11,6 +11,9 @@ posix_local_path_pattern <- function() {
 # for folders with spaces, a path that directly follows "<": that branch does not
 # start at "</", so that a closing HTML tag followed by text and another closing
 # tag (as in the help index of an installed package) is not taken for a path.
+# Two divisions with a space before each slash and none after are taken for a
+# path (a false alarm); respacing the expression avoids it.
+# A path whose second component begins with a space is not found.
 additional_local_path_patterns <- function() {
   c(posix_local_path_pattern(),
     "(^|[^A-Za-z0-9._/:-])/[A-Za-z0-9._~-]+/[A-Za-z0-9._~/-]+",
