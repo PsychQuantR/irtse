@@ -51,13 +51,16 @@ risk_diff <- function(a, b, theta, estimator, margin) {
   A <- reports$info
   B <- reports$boot
   result <- list(J = J, h_true = h,
-                 smse_info = sum(weights * (A - h)^2),
-                 smse_boot = sum(weights * (B - h)^2),
-                 diff = sum(weights * (A - B) * (A + B - 2 * h)))
+                 smse_info = checked_zero_risk(sum(weights * (A - h)^2),
+                   logs, A - h, what = "smse_info"),
+                 smse_boot = checked_zero_risk(sum(weights * (B - h)^2),
+                   logs, B - h, what = "smse_boot"),
+                 diff = checked_zero_risk(sum(weights * (A - B) * (A + B - 2 * h)),
+                   logs, A - B, A + B - 2 * h, what = "diff"))
   finite_value(unlist(result), "scaled risk")
   if (!missing(margin)) {
     selection <- selection_risk(a, b, estimates, estimator, margin,
-                                weights, A, B, h)
+                                weights, A, B, h, logs)
     result <- c(result, selection)
   }
   result
@@ -74,7 +77,7 @@ scaled_reports <- function(plan, estimates, a, b) {
   list(info = info[indices], boot = boot[indices])
 }
 
-selection_risk <- function(a, b, estimates, estimator, margin, weights, A, B, h) {
+selection_risk <- function(a, b, estimates, estimator, margin, weights, A, B, h, logs) {
   choices <- vapply(estimates, function(t) {
     selection_at(a, a * (t - b), estimator, margin)
   }, character(1))
@@ -83,7 +86,8 @@ selection_risk <- function(a, b, estimates, estimator, margin, weights, A, B, h)
   }, numeric(1))
   report <- ifelse(choices == "info", A, B)
   risk <- if (any(choices == "none")) NA_real_ else {
-    finite_value(sum(weights * (report - h)^2), "selection risk")
+    value <- finite_value(sum(weights * (report - h)^2), "selection risk")
+    checked_zero_risk(value, logs, report - h, what = "smse_select")
   }
   list(smse_select = risk, p_select = probabilities)
 }

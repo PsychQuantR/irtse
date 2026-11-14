@@ -1,7 +1,11 @@
 refine_roots <- function(T, low, high, a, b, estimator, derivative = FALSE) {
   evaluate <- function(x, totals) {
     eq <- estimate_equation(x, a, b, estimator, totals)
-    if (derivative) list(value = eq$derivative, derivative = rep(0, length(x))) else eq
+    if (derivative) {
+      list(value = eq$derivative, derivative = rep(0, length(x)))
+    } else {
+      list(value = eq$scaled_value, derivative = eq$scaled_derivative)
+    }
   }
   fl <- evaluate(low, T)$value
   fh <- evaluate(high, T)$value

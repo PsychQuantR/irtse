@@ -6,8 +6,8 @@ root_brackets <- function(T, a, b, estimator, interval) {
   if (estimator == "MLE") {
     low <- rep(interval[[1L]], length(T))
     high <- rep(interval[[2L]], length(T))
-    fl <- estimate_equation(low, a, b, estimator, T)$value
-    fh <- estimate_equation(high, a, b, estimator, T)$value
+    fl <- estimate_equation(low, a, b, estimator, T)$scaled_value
+    fh <- estimate_equation(high, a, b, estimator, T)$scaled_value
     bad <- which(fl < 0 | fh > 0)
     if (length(bad)) root_error(T[bad[[1L]]], estimator, "no sign change")
     return(list(low = low, high = high))
@@ -55,7 +55,7 @@ grid_equation <- function(grid, a, b, T = 0, derivative = FALSE) {
   unlist(lapply(starts, function(start) {
     indices <- seq.int(start, min(length(grid), start + size - 1L))
     equation <- estimate_equation(grid[indices], a, b, "WLE", T)
-    if (derivative) equation$derivative else equation$value
+    if (derivative) equation$derivative else equation$scaled_value
   }), use.names = FALSE)
 }
 

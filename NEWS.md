@@ -2,6 +2,15 @@
 
 Unreleased development version.
 
+* Form weighted score terms on the log scale and locate roots from a common
+  scale for the function and derivative, including beyond the double range.
+
+* Reject positive scaled risks that underflow, including the selection risk,
+  while preserving exact zeros from rounded reports or cancelling differences.
+
+* Reject numeric arguments carrying a class before arithmetic; continue to
+  accept named plain numeric vectors.
+
 * Retain score tails representable only as subnormal numbers by obtaining
   probabilities from their logarithms, correcting MLE roots and bootstrap SEs
   for separated difficulties.

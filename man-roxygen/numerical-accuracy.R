@@ -8,6 +8,9 @@
 #' With `margin`, `risk_diff()` evaluates the selection rule at every estimate,
 #' including estimates outside the range; supplying such an estimate as `theta`
 #' to `se_select()` is rejected.
+#' Numeric arguments (`a`, `b`, `theta`, `margin`) that carry a class are rejected
+#' before arithmetic; plain numeric vectors with names are accepted and their
+#' names are ignored.
 #'
 #' @section Numerical accuracy:
 #' At the supplied ability, information and coefficients use
@@ -26,8 +29,11 @@
 #' underflow. A call can still stop with `representable` when an intermediate
 #' value, such as a scaled cumulant ratio or a squared report before its weight
 #' is applied, is not representable, even if the returned quantity would be.
-#' Score terms representable only as subnormal numbers are kept, with fewer
-#' significant bits; the root inherits that loss of accuracy.
+#' Weighted score terms are formed on the log scale, including the discrimination.
+#' The function and its derivative use the same scale at each point for signs,
+#' exact-zero tests and Newton steps, so the location of a root does not depend
+#' on the double range, even when every score term is smaller than the smallest
+#' positive double.
 #' Inputs within the supported range can still yield a nonzero result
 #' outside double precision, as in `delta2(1, 0, 300, "MLE")`, or a nonzero logit
 #' whose `tanh(eta / 2)` is zero, as in `delta2(1, 0, 2^-1074, "MLE")`.
@@ -44,4 +50,8 @@
 #' A third exception to nonzero results is a risk term whose report agrees with
 #' its target to within rounding: its squared difference is zero. For example,
 #' `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
-#' though the mathematical risk is positive.
+#' though the mathematical risk is positive. A positive risk that underflows
+#' stops the call with `representable`. A risk that is itself a subnormal number
+#' has few significant bits. For `diff`, a term is zero when either factor in
+#' `w * (A - B) * (A + B - 2 * h)` is exactly zero; cancelling positive and negative
+#' parts can also give zero, but underflow of nonzero terms cannot.

@@ -150,3 +150,13 @@ reference_coordinates <- function(b) {
   list(b = finite_value(b - reference, "shifted difficulties"),
        reference = reference)
 }
+
+# Inspect only zero sums: keep ordinary arithmetic (and its last digits) otherwise.
+checked_zero_risk <- function(value, logs, first, second = first, what) {
+  if (!is.finite(value) || value != 0) return(value)
+  keep <- first != 0 & second != 0 & is.finite(logs)
+  if (!any(keep)) return(value)
+  terms <- logs[keep] + log(abs(first[keep])) + log(abs(second[keep]))
+  if (max(terms) < log(2^-1074)) representation_error(paste("scaled risk", what))
+  value
+}
