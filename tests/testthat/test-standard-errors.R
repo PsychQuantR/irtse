@@ -281,7 +281,7 @@ test_that("README statements", {
   readme <- paste(readLines(readme_path, warn = FALSE), collapse = "\n")
 
   expect_match(readme, "unreleased", fixed = TRUE)
-  expect_match(readme, "working name", fixed = TRUE)
+  expect_no_match(readme, "working name", fixed = TRUE)
   expect_match(readme, "catR::semTheta", fixed = TRUE)
 })
 

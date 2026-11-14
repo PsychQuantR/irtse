@@ -1,7 +1,6 @@
 # irtse
 
-**Status: unreleased.** `irtse` is a working name; the name, the interface and
-the return values of `se_select()` may still change before a first release.
+**Status: unreleased.** The interface may still change before a first release.
 The package is not on CRAN or any other repository.
 
 `irtse` compares two standard errors of an IRT ability estimate for dichotomous
