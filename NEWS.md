@@ -2,11 +2,19 @@
 
 Unreleased development version.
 
+* Correct what the documents say about the limits of the double range. A scaled
+  risk stops the call when the logarithm the summation computes is below
+  `log(2^-1074)` or when its value is above the largest double. That logarithm
+  is computed from rounded reports, target and log weights, so the outcome need
+  not agree with the side of the limit on which the exact risk lies; when a
+  report and the target nearly agree the computed risk can be wrong by a large
+  factor. The earlier text claimed that this happens only within a relative
+  1e-12 of either limit; no width is claimed now. No function changed.
+
 * Clarify scaled-risk accuracy near both ends of the double range: rounding the
   logarithm from which a risk is rebuilt contributes a relative error of the
   order of 1e-13, rounding the result to a subnormal double can contribute much
-  more, subnormal risks are not guaranteed to be within one spacing, and risks
-  within a relative 1e-12 of either boundary may be returned or stop the call.
+  more, and subnormal risks are not guaranteed to be within one spacing.
   Cancellation in `diff` amplifies the errors of its terms.
 
 * Sum all four scaled risks on the log scale, retaining representable terms

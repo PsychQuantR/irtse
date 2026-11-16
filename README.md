@@ -80,10 +80,12 @@ remain subject to the following numerical limits.
   underflow. A call can still stop with "representable" when an intermediate
   value, such as a scaled cumulant ratio, is not representable, even if the
   returned quantity would be. The four scaled risks (`smse_info`, `smse_boot`,
-  `diff`, `smse_select`) are summed on the log scale: an unrepresentable weight,
-  squared difference or partial product does not prevent a representable risk,
-  apart from a risk inside the band at the two ends of the double range described
-  below.
+  `diff`, `smse_select`) are summed on the log scale: each term is formed as a
+  whole from the logarithm of its weight and of its two differences, so a
+  weight, a squared difference or a partial product is never formed on its own
+  and cannot stop a call or remove a term by leaving the double range. The range
+  is checked only on the logarithm of the whole sum and on the value rebuilt
+  from it.
   Weighted score terms are formed on the log scale, including the
   discrimination. The function and its derivative use the same scale at each
   point for signs, exact-zero tests and Newton steps, so the location of a root
@@ -97,29 +99,46 @@ remain subject to the following numerical limits.
   terms of `diff`. In the third case,
   the squared difference is zero; for example,
   `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
-  though the mathematical risk is positive. A positive risk below `2^-1074`
-  stops the call with "representable" and the field name, even when ordinary
-  arithmetic would round it up to `2^-1074`. The value of a scaled risk is
+  though the mathematical risk is positive. A risk whose logarithm, as this
+  summation computes it, is below `log(2^-1074)` stops the call with
+  `representable` and the field name, even when ordinary arithmetic would round
+  the value up to `2^-1074`; a value above the largest double stops the call in
+  the same way. The value of a scaled risk is
   rebuilt from its logarithm. Rounding that logarithm alone contributes a relative
   error of the order of 1e-13 where the logarithm is near 700 in absolute value;
   errors already in the reports and log weights add to it, and so does rounding
-  the result to a double. A risk that is itself a subnormal number is a multiple
-  of `2^-1074`, so rounding the result to a subnormal double can give a much larger
+  the result to a double. A returned risk in the subnormal range is a multiple
+  of `2^-1074`, so rounding the result to a subnormal double can give a much
+  larger
   relative error: a risk of 1.6 such spacings is returned as 2. A subnormal risk
   is not claimed to be within one spacing of the exact value, and no general
   bound on the relative error of a returned risk is claimed.
-  A risk within a relative 1e-12 of `2^-1074` or of the largest double can either
-  be returned or stop the call.
+  Both decisions follow the logarithm computed from the reports, the target and
+  the log weights in double precision, not the exact risk, and the two can lie
+  on different sides of `2^-1074` or of the largest double. This is not confined
+  to risks close to those limits: when a report and the target nearly agree,
+  their difference keeps few significant digits and the computed risk can be
+  wrong by a large factor. In `risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r +
+  2^-52, "MLE")` with `r = 0.685794632511088` the report and the target agree to
+  a relative 1.1e-13, the exact `smse_boot` is 2.05 times `2^-1074`, which is
+  representable, and the call stopped when it was measured (R 4.6.1, aarch64
+  macOS). With `r = 0.6907256300571373` and the ability `-r + 2^-49` the exact
+  value is 0.96 times `2^-1074`, which is below the smallest positive double,
+  and the call returned `2^-1074`. Beyond the calls named in the specification,
+  the package does not claim that the outcome agrees with the side of either
+  limit on which the exact risk lies.
   For `diff`, cancellation multiplies the errors of its terms by its condition
-  number (the sum of the absolute terms divided by the absolute sum). Neither
-  the boundary band nor the subnormal examples bounds the relative error of a
-  `diff` whose terms cancel. For `diff`, a term is zero when either factor
+  number (the sum of the absolute terms divided by the absolute sum). Nothing
+  said above about the limits of the double range or about subnormal values
+  bounds the relative error of a `diff` whose terms cancel. For `diff`, a term
+  is zero when either factor
   in `w * (A - B) * (A + B - 2 * h)` is exactly zero. As a fourth exception, when
   the positive and negative terms of `diff`, scaled by the largest absolute term,
   cancel to exactly 0, the function returns 0. A `diff` of 0 means the two risks
   are not distinguished in double precision, not that they are equal.
-  A nonzero `diff` with absolute value below `2^-1074` stops the call with
-  "representable" and the field name.
+  A nonzero `diff` whose logarithm of the absolute value, computed in the same
+  way, is below `log(2^-1074)` stops the call with `representable` and the field
+  name.
   For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
   representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
   because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
