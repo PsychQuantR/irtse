@@ -1027,8 +1027,12 @@ test_that("README and risk help explain a zero diff as not distinguished", {
   readme <- testthat::test_path("..", "..", "README.md")
   if (file.exists(readme)) texts$README <- readLines(readme, warn = FALSE)
   rd_path <- testthat::test_path("..", "..", "man", "risk_diff.Rd")
+  # In an installed package the page is read from the Rd database. Its pieces
+  # are joined without a separator, which gives the text of the source file; a
+  # space between the pieces would stand between a code span and the comma,
+  # semicolon or bracket next to it.
   texts$risk_diff <- if (file.exists(rd_path)) readLines(rd_path, warn = FALSE) else {
-    as.character(tools::Rd_db("irtse")[["risk_diff.Rd"]])
+    paste(as.character(tools::Rd_db("irtse")[["risk_diff.Rd"]]), collapse = "")
   }
   for (name in names(texts)) {
     text <- gsub("\\s+", " ", paste(texts[[name]], collapse = " "))
