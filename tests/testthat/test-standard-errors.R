@@ -968,12 +968,13 @@ risk_limit_sentences <- c(
   terms = paste0(
     "The four scaled risks (smse_info, smse_boot, diff, smse_select) are summed on ",
     "the log scale: each term is formed as a whole from the logarithm of its weight ",
-    "and of its two differences, so a weight, a squared difference or a partial ",
-    "product is never formed on its own and cannot stop a call or remove a term by ",
-    "leaving the double range."),
+    "and of its two differences, so the sum never forms a weight, a squared ",
+    "difference or a partial product on its own, and none of them can stop a call ",
+    "or remove a term by leaving the double range."),
   checked = paste0(
-    "The range is checked only on the logarithm of the whole sum and on the value ",
-    "rebuilt from it."),
+    "Apart from requiring that the log weights and differences it receives are ",
+    "finite, the sum checks the range only on the logarithm of the whole sum and ",
+    "on the value rebuilt from it."),
   stop = paste0(
     "A risk whose logarithm, as this summation computes it, is below log(2^-1074) ",
     "stops the call with representable and the field name, even when ordinary ",

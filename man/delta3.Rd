@@ -58,11 +58,12 @@ underflow. A call can still stop with \code{representable} when an intermediate
 value, such as a scaled cumulant ratio, is not representable, even if the
 returned quantity would be. The four scaled risks (\code{smse_info}, \code{smse_boot},
 \code{diff}, \code{smse_select}) are summed on the log scale: each term is formed as a
-whole from the logarithm of its weight and of its two differences, so a
-weight, a squared difference or a partial product is never formed on its own
-and cannot stop a call or remove a term by leaving the double range. The
-range is checked only on the logarithm of the whole sum and on the value
-rebuilt from it.
+whole from the logarithm of its weight and of its two differences, so the sum
+never forms a weight, a squared difference or a partial product on its own,
+and none of them can stop a call or remove a term by leaving the double
+range. Apart from requiring that the log weights and differences it receives
+are finite, the sum checks the range only on the logarithm of the whole sum
+and on the value rebuilt from it.
 Weighted score terms are formed on the log scale, including the discrimination.
 The function and its derivative use the same scale at each point for signs,
 exact-zero tests and Newton steps, so the location of a root does not depend
