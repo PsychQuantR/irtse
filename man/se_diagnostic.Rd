@@ -87,9 +87,10 @@ The function and its derivative use the same scale at each point for signs,
 exact-zero tests and Newton steps, so the location of a root does not depend
 on the double range, even when every score term is smaller than the smallest
 positive double.
-Inputs within the supported range can still yield a nonzero result
-outside double precision, as in \code{delta2(1, 0, 300, "MLE")}, or a nonzero logit
-whose \code{tanh(eta / 2)} is zero, as in \code{delta2(1, 0, 2^-1074, "MLE")}.
+Inputs within the supported range can still yield a nonzero result computed
+as outside the range of double precision, as in \code{delta2(1, 0, 300, "MLE")}, or
+a nonzero logit whose \code{tanh(eta / 2)} is zero, as in
+\code{delta2(1, 0, 2^-1074, "MLE")}.
 These cases, and any non-finite logit, stop with \code{representable}
 (underflowed probabilities in \code{risk_diff()}'s \code{p_select} are returned as zero).
 Discriminations whose ratios satisfy the lattice tolerance of eight relative
