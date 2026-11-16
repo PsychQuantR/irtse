@@ -951,13 +951,77 @@ normalise_document_text <- function(text) {
   gsub("[[:space:]]+", " ", text)
 }
 
-has_risk_boundary_band <- function(text) {
-  grepl(paste0("risk within a relative 1e-12 of 2^-1074 or of the largest double ",
-               "can either be returned or stop the call"), text, fixed = TRUE)
+# A sentence of a document, checked as a whole: the fixed text from its first
+# word to its full stop, at the start of the text or after the full stop of the
+# sentence before it. A sentence with words put in front of it, or with words
+# between its last word and its full stop, does not match.
+has_document_sentence <- function(text, sentence) {
+  at <- gregexpr(sentence, text, fixed = TRUE)[[1]]
+  if (at[1] < 0) return(FALSE)
+  any(vapply(at, function(i) i == 1 || identical(substr(text, i - 2, i - 1), ". "),
+             logical(1)))
 }
+
+# The sentences on the limits of the double range, as README.md and the help
+# pages state them after markup is removed.
+risk_limit_sentences <- c(
+  terms = paste0(
+    "The four scaled risks (smse_info, smse_boot, diff, smse_select) are summed on ",
+    "the log scale: each term is formed as a whole from the logarithm of its weight ",
+    "and of its two differences, so a weight, a squared difference or a partial ",
+    "product is never formed on its own and cannot stop a call or remove a term by ",
+    "leaving the double range."),
+  checked = paste0(
+    "The range is checked only on the logarithm of the whole sum and on the value ",
+    "rebuilt from it."),
+  stop = paste0(
+    "A risk whose logarithm, as this summation computes it, is below log(2^-1074) ",
+    "stops the call with representable and the field name, even when ordinary ",
+    "arithmetic would round the value up to 2^-1074; a value above the largest ",
+    "double stops the call in the same way."),
+  follow = paste0(
+    "Both decisions follow the logarithm computed from the reports, the target and ",
+    "the log weights in double precision, not the exact risk, and the two can lie ",
+    "on different sides of 2^-1074 or of the largest double."),
+  not_close = paste0(
+    "This is not confined to risks close to those limits: when a report and the ",
+    "target nearly agree, their difference keeps few significant digits and the ",
+    "computed risk can be wrong by a large factor."),
+  call_stopped = paste0(
+    "In risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, \"MLE\") with ",
+    "r = 0.685794632511088 the report and the target agree to a relative 1.1e-13, ",
+    "the exact smse_boot is 2.05 times 2^-1074, which is representable, and the ",
+    "call stopped when it was measured (R 4.6.1, aarch64 macOS)."),
+  call_returned = paste0(
+    "With r = 0.6907256300571373 and the ability -r + 2^-49 the exact value is ",
+    "0.96 times 2^-1074, which is below the smallest positive double, and the call ",
+    "returned 2^-1074."),
+  no_claim = paste0(
+    "Beyond the calls named in the specification, the package does not claim that ",
+    "the outcome agrees with the side of either limit on which the exact risk lies."),
+  diff_stop = paste0(
+    "A nonzero diff whose logarithm of the absolute value, computed in the same ",
+    "way, is below log(2^-1074) stops the call with representable and the field ",
+    "name."))
+
+# The attribution of the error of the order of 1e-13, through the words after
+# the number.
+risk_log_rounding_clause <- paste0(
+  "Rounding that logarithm alone contributes a relative error of the order of ",
+  "1e-13 where the logarithm is near 700 in absolute value;")
+
+# Sentences of earlier versions that state more than the package does.
+retired_risk_sentences <- c(
+  "near the ends of the double range its relative error is of the order of 1e-13",
+  "within a relative 1e-12 of 2^-1074",
+  "inside the band at the two ends of the double range",
+  "A positive risk below 2^-1074 stops the call",
+  "A nonzero diff with absolute value below 2^-1074 stops the call",
+  "A risk that is itself a subnormal number")
 
 # Requirement: Numerical range
 # Scenario: Documents state what a risk difference of 0 means
+# spec-example: irtse-standard-errors / documents on the limits of the double range
 test_that("README and risk help explain a zero diff as not distinguished", {
   texts <- list()
   readme <- testthat::test_path("..", "..", "README.md")
@@ -971,45 +1035,90 @@ test_that("README and risk help explain a zero diff as not distinguished", {
     expect_match(text, "diff[^.]*not distinguished[^.]*double precision",
                  info = name)
     text <- normalise_document_text(texts[[name]])
-    expect_true(has_risk_boundary_band(text), info = name)
-    expect_match(text, paste0("Rounding that logarithm alone contributes a relative ",
-                              "error of the order of 1e-13"), fixed = TRUE, info = name)
+    for (sentence in names(risk_limit_sentences)) {
+      expect_true(has_document_sentence(text, risk_limit_sentences[[sentence]]),
+                  info = paste(name, sentence))
+    }
+    expect_match(text, risk_log_rounding_clause, fixed = TRUE, info = name)
     expect_match(text, paste0("rounding the result to a subnormal double can give ",
                               "a much larger relative error"), fixed = TRUE, info = name)
-    expect_match(text, paste0("does not prevent a representable risk, apart from a risk ",
-                              "inside the band at the two ends of the double range"),
+    expect_match(text, "A returned risk in the subnormal range is a multiple of 2^-1074",
                  fixed = TRUE, info = name)
-    expect_false(grepl(paste0("near the ends of the double range its relative error ",
-                              "is of the order of 1e-13"), text, fixed = TRUE), info = name)
+    for (retired in retired_risk_sentences) {
+      expect_false(grepl(retired, text, fixed = TRUE), info = paste(name, retired))
+    }
   }
 })
 
 # Requirement: Numerical range
 # Scenario: Documents state what a risk difference of 0 means
-test_that("The risk boundary band check requires complete numbers", {
-  expect_false(has_risk_boundary_band(paste0(
-    "A risk within a relative 1e-120 of 2^-1074 or of the largest double ",
-    "can either be returned or stop the call.")))
-  expect_false(has_risk_boundary_band(paste0(
-    "A risk within a relative 1e-12 of 12^-1074 or of the largest double ",
-    "can either be returned or stop the call.")))
-  expect_true(has_risk_boundary_band(paste0(
-    "A risk within a relative 1e-12 of 2^-1074 or of the largest double ",
-    "can either be returned or stop the call.")))
+test_that("The document sentence check takes whole sentences and reads through markup", {
+  wanted <- risk_limit_sentences[["follow"]]
+  rd <- paste0(
+    "Both decisions follow the logarithm computed from the reports, the target and ",
+    "the log weights in double precision, not the exact risk, and the two can lie ",
+    "on different sides of \\code{2^-1074} or of the largest double.")
+  markdown <- sub("\\code{2^-1074}", "`2^-1074`", rd, fixed = TRUE)
+  check <- function(raw) has_document_sentence(normalise_document_text(raw), wanted)
+  expect_true(check(rd))
+  expect_true(check(markdown))
+  expect_true(check(paste("A sentence before it.", rd, "A sentence after it.")))
+  expect_false(check(paste("It is false that", rd)))
+  expect_false(check(sub("largest double.", "largest double only for diff.", rd,
+                         fixed = TRUE)))
+  expect_false(check(sub(", not the exact risk", "", rd, fixed = TRUE)))
+  expect_false(check(sub("2^-1074", "12^-1074", rd, fixed = TRUE)))
+
+  clause <- function(raw) {
+    grepl(risk_log_rounding_clause, normalise_document_text(raw), fixed = TRUE)
+  }
+  written <- paste0(
+    "Rounding that logarithm alone contributes a relative error of the order of ",
+    "1e-13 where the logarithm is near 700 in absolute value; errors already in")
+  expect_true(clause(written))
+  expect_false(clause(sub("1e-13 ", "1e-130 ", written, fixed = TRUE)))
+  expect_false(clause(sub("1e-13 ", "1e-13.5 ", written, fixed = TRUE)))
+  expect_false(clause(sub("near 700 in absolute value;", "near 700;", written,
+                          fixed = TRUE)))
 })
 
 # Requirement: Numerical range
 # Scenario: Documents state what a risk difference of 0 means
-test_that("No source help page claims a general relative accuracy near the limits", {
+test_that("No source help page contains a retired sentence on risks near the limits", {
   man <- testthat::test_path("..", "..", "man")
   if (!dir.exists(man)) skip("Source help pages not available in installed package")
   paths <- list.files(man, pattern = "[.]Rd$", full.names = TRUE)
   bad <- vapply(paths, function(path) {
     text <- normalise_document_text(readLines(path, warn = FALSE))
-    grepl(paste0("near the ends of the double range its relative error ",
-                 "is of the order of 1e-13"), text, fixed = TRUE)
+    any(vapply(retired_risk_sentences, function(retired) {
+      grepl(retired, text, fixed = TRUE)
+    }, logical(1)))
   }, logical(1))
   expect_false(any(bad), info = paste(basename(paths[bad]), collapse = ", "))
+})
+
+# Requirement: Numerical range
+# Scenario: The outcome at the limits of the double range follows the computed logarithm
+# spec-example: irtse-standard-errors / outcomes at the smallest positive double
+test_that("Calls with an exact risk near the smallest positive double stop or return a finite risk", {
+  calls <- list(
+    list(r = 0.685794632511088, theta = -0.685794632511088 + 2^-52),
+    list(r = 0.6907256300571373, theta = -0.6907256300571373 + 2^-49),
+    list(r = 0.7204421116605104, theta = -0.7204421067316231),
+    list(r = 0.7198038989710372, theta = -0.7198038953855531))
+  for (call in calls) {
+    out <- tryCatch(
+      risk_diff(rep(1000, 3), c(-2 * call$r, 0, 2 * call$r), call$theta, "MLE"),
+      error = function(e) e)
+    label <- format(call$r, digits = 17)
+    if (inherits(out, "error")) {
+      expect_match(conditionMessage(out), "representable", fixed = TRUE, info = label)
+      expect_match(conditionMessage(out), "smse_boot", fixed = TRUE, info = label)
+    } else {
+      expect_true(is.finite(out$smse_boot), info = label)
+      expect_gte(out$smse_boot, 0)
+    }
+  }
 })
 
 # Requirement: Package metadata and documentation
