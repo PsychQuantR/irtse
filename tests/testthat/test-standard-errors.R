@@ -1092,7 +1092,7 @@ test_that("README and risk help explain a zero diff as not distinguished", {
 
 # Requirement: Numerical range
 # Scenario: Documents state what a risk difference of 0 means
-test_that("The document sentence check takes whole sentences and reads through markup", {
+test_that("The document sentence check compares fixed text from first word to full stop and reads through markup", {
   wanted <- risk_limit_sentences[["follow"]]
   rd <- paste0(
     "Both decisions follow the logarithm computed from the reports, the target and ",
@@ -1108,6 +1108,13 @@ test_that("The document sentence check takes whole sentences and reads through m
                          fixed = TRUE)))
   expect_false(check(sub(", not the exact risk", "", rd, fixed = TRUE)))
   expect_false(check(sub("2^-1074", "12^-1074", rd, fixed = TRUE)))
+
+  # What a check of fixed text does not see, as the Example states it: the
+  # sentence after an abbreviation that ends in a full stop and a space, inside
+  # a comment of the document, and with more text directly after its full stop.
+  expect_true(check(paste("This is false, e.g.", rd)))
+  expect_true(check(paste0("<!-- An earlier text. ", markdown, " -->")))
+  expect_true(check(sub("largest double.", "largest double.5 only", rd, fixed = TRUE)))
 
   clause <- function(raw) {
     grepl(risk_log_rounding_clause, normalise_document_text(raw), fixed = TRUE)
