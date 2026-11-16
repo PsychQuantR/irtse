@@ -951,10 +951,12 @@ normalise_document_text <- function(text) {
   gsub("[[:space:]]+", " ", text)
 }
 
-# A sentence of a document, checked as a whole: the fixed text from its first
-# word to its full stop, at the start of the text or after the full stop of the
-# sentence before it. A sentence with words put in front of it, or with words
-# between its last word and its full stop, does not match.
+# A sentence of a document, checked as fixed text: the text from its first word
+# to its full stop has to stand at the start of the document text or directly
+# after a full stop and a space. This is a check of text, not of meaning: the
+# same text after an abbreviation that ends in a full stop and a space, inside
+# a comment of the document, or with more text directly after its full stop
+# also matches.
 has_document_sentence <- function(text, sentence) {
   at <- gregexpr(sentence, text, fixed = TRUE)[[1]]
   if (at[1] < 0) return(FALSE)
@@ -962,48 +964,76 @@ has_document_sentence <- function(text, sentence) {
              logical(1)))
 }
 
-# The sentences on the limits of the double range, as README.md and the help
-# pages state them after markup is removed.
+# The sentences that README.md and the help page of risk_diff() state, as the
+# Example "documents on the limits of the double range" lists them: the text
+# after markup is removed.
 risk_limit_sentences <- c(
   terms = paste0(
-    "The four scaled risks (smse_info, smse_boot, diff, smse_select) are summed on ",
-    "the log scale: each term is formed as a whole from the logarithm of its weight ",
-    "and of its two differences, so the sum never forms a weight, a squared ",
-    "difference or a partial product on its own, and none of them can stop a call ",
-    "or remove a term by leaving the double range."),
+    "The four scaled risks (smse_info, smse_boot, diff, smse_select) are summed",
+    " on the log scale: each term is formed as a whole from the logarithm of ",
+    "its weight and of its two differences, so the sum never forms a weight, a ",
+    "squared difference or a partial product on its own, and none of them can ",
+    "stop a call or remove a term by leaving the double range."),
   checked = paste0(
     "Apart from requiring that the log weights and differences it receives are ",
-    "finite, the sum checks the range only on the logarithm of the whole sum and ",
-    "on the value rebuilt from it."),
+    "finite, the sum checks the range only on the logarithm of the whole sum ",
+    "and on the value rebuilt from it."),
   stop = paste0(
-    "A risk whose logarithm, as this summation computes it, is below log(2^-1074) ",
-    "stops the call with representable and the field name, even when ordinary ",
-    "arithmetic would round the value up to 2^-1074; a value above the largest ",
-    "double stops the call in the same way."),
+    "A risk whose logarithm, as this summation computes it, is below ",
+    "log(2^-1074) stops the call with representable and the field name, even ",
+    "when ordinary arithmetic would round the value up to 2^-1074; a risk whose",
+    " value rebuilt from that logarithm is not finite, or is 0, stops the call ",
+    "in the same way."),
+  rebuilt = paste0(
+    "The value of a scaled risk is rebuilt from its logarithm."),
+  attribution = paste0(
+    "Rounding that logarithm alone contributes a relative error of the order of",
+    " 1e-13 where the logarithm is near 700 in absolute value; errors already ",
+    "in the reports and log weights add to it, and so does rounding the result ",
+    "to a double."),
+  subnormal = paste0(
+    "A returned risk in the subnormal range is a multiple of 2^-1074, so ",
+    "rounding the result to a subnormal double can give a much larger relative ",
+    "error: in risk_diff(rep(1000, 3), c(-1.44, 0, 1.44), -0.72 + 5e-9, \"MLE\") ",
+    "the exact smse_boot is 1.6 times 2^-1074 and the call returned 2 times ",
+    "2^-1074."),
+  no_bound = paste0(
+    "A subnormal risk is not claimed to be within 2^-1074 of the exact value, ",
+    "and no general bound on the relative error of a returned risk is claimed."),
   follow = paste0(
-    "Both decisions follow the logarithm computed from the reports, the target and ",
-    "the log weights in double precision, not the exact risk, and the two can lie ",
-    "on different sides of 2^-1074 or of the largest double."),
+    "Both decisions follow the logarithm computed from the reports, the target ",
+    "and the log weights in double precision, not the exact risk, and the two ",
+    "can lie on different sides of 2^-1074 or of the largest double."),
   not_close = paste0(
-    "This is not confined to risks close to those limits: when a report and the ",
-    "target nearly agree, their difference keeps few significant digits and the ",
-    "computed risk can be wrong by a large factor."),
+    "At 2^-1074 this is not confined to risks close to the limit: when a report",
+    " and the target nearly agree, their difference keeps few significant ",
+    "digits and the computed risk can be wrong by a large factor."),
   call_stopped = paste0(
-    "In risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, \"MLE\") with ",
-    "r = 0.685794632511088 the report and the target agree to a relative 1.1e-13, ",
-    "the exact smse_boot is 2.05 times 2^-1074, which is representable, and the ",
-    "call stopped when it was measured (R 4.6.1, aarch64 macOS)."),
+    "In risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, \"MLE\") with r ",
+    "set to 0.685794632511088 the report and the target agree to a relative ",
+    "1.1e-13, the exact smse_boot is 2.05 times 2^-1074, which is ",
+    "representable, and the call stopped."),
   call_returned = paste0(
-    "With r = 0.6907256300571373 and the ability -r + 2^-49 the exact value is ",
-    "0.96 times 2^-1074, which is below the smallest positive double, and the call ",
-    "returned 2^-1074."),
+    "With r set to 0.6907256300571373 and the ability -r + 2^-49 the exact ",
+    "value is 0.96 times 2^-1074, which is below the smallest positive double, ",
+    "and the call returned 2^-1074."),
+  upper = paste0(
+    "At the largest double, in risk_diff(rep(512, 2), c(-B, B), 0, \"MLE\") with ",
+    "B set to 1042 * log(2) / 512 the exact smse_info is above the largest ",
+    "double by a relative 9.9e-15 and the call returned 1.7976931348622732e308."),
   no_claim = paste0(
-    "Beyond the calls named in the specification, the package does not claim that ",
-    "the outcome agrees with the side of either limit on which the exact risk lies."),
+    "In general the package does not claim that the outcome agrees with the ",
+    "side of either limit on which the exact risk lies."),
+  platform = paste0(
+    "The outcomes of the calls named here were measured with R 4.6.1 on aarch64",
+    " macOS and can differ on another platform."),
+  zero_diff = paste0(
+    "A diff of 0 means the two risks are not distinguished in double precision,",
+    " not that they are equal."),
   diff_stop = paste0(
-    "A nonzero diff whose logarithm of the absolute value, computed in the same ",
-    "way, is below log(2^-1074) stops the call with representable and the field ",
-    "name."))
+    "A nonzero diff whose logarithm of the absolute value, computed in the same",
+    " way, is below log(2^-1074) stops the call with representable and the ",
+    "field name."))
 
 # The attribution of the error of the order of 1e-13, through the words after
 # the number.
@@ -1011,14 +1041,19 @@ risk_log_rounding_clause <- paste0(
   "Rounding that logarithm alone contributes a relative error of the order of ",
   "1e-13 where the logarithm is near 700 in absolute value;")
 
-# Sentences of earlier versions that state more than the package does.
+# Strings of earlier versions that the documents no longer contain.
 retired_risk_sentences <- c(
   "near the ends of the double range its relative error is of the order of 1e-13",
   "within a relative 1e-12 of 2^-1074",
   "inside the band at the two ends of the double range",
   "A positive risk below 2^-1074 stops the call",
   "A nonzero diff with absolute value below 2^-1074 stops the call",
-  "A risk that is itself a subnormal number")
+  "A risk that is itself a subnormal number",
+  "a risk of 1.6 such spacings is returned as 2",
+  "This is not confined to risks close to those limits",
+  "Beyond the calls named in the specification",
+  "a value above the largest double stops the call",
+  "1.6 such spacings")
 
 # Requirement: Numerical range
 # Scenario: Documents state what a risk difference of 0 means
