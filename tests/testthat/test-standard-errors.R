@@ -943,9 +943,7 @@ test_that("README and help retain both item-level accuracy qualifications", {
 
 normalise_document_text <- function(text) {
   text <- paste(text, collapse = " ")
-  text <- gsub(paste0("\\\\code[[:space:]]*\\{[[:space:]]*",
-                      "((?:[^{}\\\\]|\\\\.)*?)[[:space:]]*\\}"),
-               "\\1", text, perl = TRUE)
+  text <- gsub("\\\\code\\{((?:[^{}\\\\]|\\\\.)*?)\\}", "\\1", text, perl = TRUE)
   text <- gsub("\\\\([%{}^])", "\\1", text, perl = TRUE)
   text <- gsub("`", "", text, fixed = TRUE)
   gsub("[[:space:]]+", " ", text)
@@ -1115,6 +1113,19 @@ test_that("The document sentence check compares fixed text from first word to fu
   expect_true(check(paste("This is false, e.g.", rd)))
   expect_true(check(paste0("<!-- An earlier text. ", markdown, " -->")))
   expect_true(check(sub("largest double.", "largest double.5 only", rd, fixed = TRUE)))
+
+  # A code span is replaced by its content as it stands: white space inside the
+  # braces is kept, so a space that splits a word, or that completes a retired
+  # sentence, is seen.
+  expect_false(check(sub("largest double", "lar\\code{ gest} double", rd, fixed = TRUE)))
+  expect_true(grepl(
+    "A positive risk below 2^-1074 stops the call",
+    normalise_document_text("A positive risk below\\code{ 2^-1074} stops the call."),
+    fixed = TRUE))
+  # With white space between the macro and its brace R reads no code span (it
+  # reports the page and drops the rest of the section), so the text stays as
+  # written and completes no sentence.
+  expect_false(check(sub("\\code{2^-1074}", "\\code {2^-1074}", rd, fixed = TRUE)))
 
   clause <- function(raw) {
     grepl(risk_log_rounding_clause, normalise_document_text(raw), fixed = TRUE)
