@@ -90,29 +90,37 @@ its target to within rounding: its squared difference is zero. For example,
 though the mathematical risk is positive. A risk whose logarithm, as this
 summation computes it, is below \code{log(2^-1074)} stops the call with
 \code{representable} and the field name, even when ordinary arithmetic would round
-the value up to \code{2^-1074}; a value above the largest double stops the call in
-the same way. The value of a scaled risk is
+the value up to \code{2^-1074}; a risk whose value rebuilt from that logarithm is
+not finite, or is 0, stops the call in the same way. The value of a scaled
+risk is
 rebuilt from its logarithm. Rounding that logarithm alone contributes a relative
 error of the order of 1e-13 where the logarithm is near 700 in absolute value;
 errors already in the reports and log weights add to it, and so does rounding
 the result to a double. A returned risk in the subnormal range is a multiple
 of \code{2^-1074}, so rounding the result to a subnormal double can give a much
 larger
-relative error: a risk of 1.6 such spacings is returned as 2. A subnormal risk
-is not claimed to be within one spacing of the exact value, and no general
+relative error: in \code{risk_diff(rep(1000, 3), c(-1.44, 0, 1.44), -0.72 + 5e-9, "MLE")} the exact \code{smse_boot} is 1.6 times \code{2^-1074} and the call returned 2
+times \code{2^-1074}. A
+subnormal risk
+is not claimed to be within \code{2^-1074} of the exact value, and no general
 bound on the relative error of a returned risk is claimed.
 Both decisions follow the logarithm computed from the reports, the target and
 the log weights in double precision, not the exact risk, and the two can lie
-on different sides of \code{2^-1074} or of the largest double. This is not
-confined to risks close to those limits: when a report and the target nearly
+on different sides of \code{2^-1074} or of the largest double. At \code{2^-1074} this
+is not confined to risks close to the limit: when a report and the target
+nearly
 agree, their difference keeps few significant digits and the computed risk
-can be wrong by a large factor. In \code{risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, "MLE")} with \code{r = 0.685794632511088} the report and the
+can be wrong by a large factor. In \code{risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, "MLE")} with \code{r} set to \code{0.685794632511088} the report and
+the
 target agree to a relative 1.1e-13, the exact \code{smse_boot} is 2.05 times
-\code{2^-1074}, which is representable, and the call stopped when it was measured
-(R 4.6.1, aarch64 macOS). With \code{r = 0.6907256300571373} and the ability \code{-r + 2^-49} the exact value is 0.96 times \code{2^-1074}, which is below the smallest
-positive double, and the call returned \code{2^-1074}. Beyond the calls named in
-the specification, the package does not claim that the outcome agrees with
-the side of either limit on which the exact risk lies.
+\code{2^-1074}, which is representable, and the call stopped. With \code{r} set to
+\code{0.6907256300571373} and the ability \code{-r + 2^-49} the exact value is 0.96 times \code{2^-1074}, which is below the smallest
+positive double, and the call returned \code{2^-1074}. At the largest double, in
+\code{risk_diff(rep(512, 2), c(-B, B), 0, "MLE")} with \code{B} set to \code{1042 * log(2) / 512} the exact \code{smse_info} is above the largest double by a relative 9.9e-15
+and the call returned 1.7976931348622732e308. In general the package does
+not claim that the outcome agrees with the side of either limit on which the
+exact risk lies. The outcomes of the calls named here were measured with R
+4.6.1 on aarch64 macOS and can differ on another platform.
 For \code{diff}, cancellation multiplies the errors of its terms by its condition
 number (the sum of the absolute terms divided by the absolute sum). Nothing
 said above about the limits of the double range or about subnormal values

@@ -4,7 +4,8 @@ Unreleased development version.
 
 * Correct what the documents say about the limits of the double range. A scaled
   risk stops the call when the logarithm the summation computes is below
-  `log(2^-1074)` or when its value is above the largest double. That logarithm
+  `log(2^-1074)` or when the value rebuilt from it is not finite or is 0. That
+  logarithm
   is computed from rounded reports, target and log weights, so the outcome need
   not agree with the side of the limit on which the exact risk lies; when a
   report and the target nearly agree the computed risk can be wrong by a large
@@ -18,9 +19,10 @@ Unreleased development version.
   Cancellation in `diff` amplifies the errors of its terms.
 
 * Sum all four scaled risks on the log scale, retaining representable terms
-  despite underflowing weights or overflowing squared reports. Reject risks
-  below `2^-1074`, even when ordinary arithmetic would round them up, and name
-  the field in range errors. Exactly cancelling `diff` terms return 0: the two
+  despite underflowing weights or overflowing squared reports. Stop when the
+  logarithm computed for a risk is below `log(2^-1074)`, even when ordinary
+  arithmetic would round the value up, and name the field in range errors.
+  Exactly cancelling `diff` terms return 0: the two
   risks are not distinguished in double precision.
 
 * Reject classed numeric arguments and classed `estimator` values before any
@@ -29,8 +31,9 @@ Unreleased development version.
 * Form weighted score terms on the log scale and locate roots from a common
   scale for the function and derivative, including beyond the double range.
 
-* Reject positive scaled risks that underflow, including the selection risk,
-  while preserving exact zeros from rounded reports or cancelling differences.
+* Stop for scaled risks whose computed value underflows, including the selection
+  risk, while preserving exact zeros from rounded reports or cancelling
+  differences.
 
 * Reject numeric arguments carrying a class before arithmetic; continue to
   accept named plain numeric vectors.
