@@ -21,12 +21,24 @@ additional_local_path_patterns <- function() {
     paste0("(^|[^A-Za-z])[A-Za-z]", ":", "/"))
 }
 
+# `paths` with the leading `root` removed. A path that is not below `root` is
+# returned as it is.
+relative_to_root <- function(paths, root) {
+  prefix <- paste0(sub("/+$", "", root), "/")
+  below <- startsWith(paths, prefix)
+  paths[below] <- substring(paths[below], nchar(prefix) + 1L)
+  paths
+}
+
 # Installed lazy-load databases and RDS files are compressed, and can match
 # a short path pattern by chance. Source files are scanned regardless of suffix.
 # The default preserves installed-package callers; source scans opt in explicitly.
-scannable_files <- function(paths, installed = TRUE) {
-  serialized <- installed & grepl("[.](rdb|rdx|rds)$", paths, ignore.case = TRUE)
-  version_control <- grepl("(^|/)[.]git(/|$)", paths)
+# With `root`, what belongs to version control is decided from the path below
+# that root, so that the name of a folder above the tree does not count.
+scannable_files <- function(paths, installed = TRUE, root = NULL) {
+  inside <- if (is.null(root)) paths else relative_to_root(paths, root)
+  serialized <- installed & grepl("[.](rdb|rdx|rds)$", inside, ignore.case = TRUE)
+  version_control <- grepl("(^|/)[.]git(/|$)", inside)
   paths[!serialized & !version_control]
 }
 
@@ -58,25 +70,27 @@ tree_files <- function(root) {
 shipped_scan_files <- function(package_root, source_root) {
   source_r <- file.path(source_root, "R")
   in_source <- dir.exists(source_r)
-  paths <- tree_files(package_root)
+  paths <- scannable_files(tree_files(package_root), installed = !in_source,
+                           root = package_root)
+  # The plain listing of the R folder has no hidden entry and nothing below a
+  # folder, so there is nothing for the selection to remove from it.
   if (in_source) paths <- c(paths, list.files(source_r, full.names = TRUE))
-  unique(scannable_files(paths, installed = !in_source))
+  unique(paths)
 }
 
 # The files read by the scan of the source tree at `source_root`. Where there
 # is no source tree, they are the files of the installed package at
 # `package_root`.
 source_scan_files <- function(package_root, source_root) {
-  in_source <- dir.exists(file.path(source_root, "R"))
-  paths <- if (in_source) {
-    c(file.path(source_root, c("DESCRIPTION", "README.md", "NEWS.md")),
-      unlist(lapply(c("R", "man", "tests"), function(dir) {
-        tree_files(file.path(source_root, dir))
-      }), use.names = FALSE))
-  } else {
-    tree_files(package_root)
+  if (!dir.exists(file.path(source_root, "R"))) {
+    return(scannable_files(tree_files(package_root), installed = TRUE,
+                           root = package_root))
   }
-  scannable_files(paths, installed = !in_source)
+  paths <- c(file.path(source_root, c("DESCRIPTION", "README.md", "NEWS.md")),
+             unlist(lapply(c("R", "man", "tests"), function(dir) {
+               tree_files(file.path(source_root, dir))
+             }), use.names = FALSE))
+  scannable_files(paths, installed = FALSE, root = source_root)
 }
 
 # The files among `paths` whose bytes match one of `patterns`.

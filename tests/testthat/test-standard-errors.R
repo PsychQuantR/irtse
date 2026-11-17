@@ -459,6 +459,10 @@ test_that("Package metadata matches the specification", {
 test_that("Package files contain no local paths or private issue references", {
   paths <- shipped_scan_files(system.file(package = "irtse"),
                               testthat::test_path("..", ".."))
+  # The selection is not empty: it holds the DESCRIPTION of the package. (A
+  # count above zero would not show that here, because in a source tree the
+  # files of the R folder are added after the selection.)
+  expect_true("DESCRIPTION" %in% basename(paths))
   expect_identical(files_matching(paths, shipped_scan_patterns()), character())
 })
 
@@ -635,6 +639,7 @@ test_that("Suggests declares the required testthat version", {
 test_that("All source files exclude local paths and private tracker references", {
   paths <- source_scan_files(system.file(package = "irtse"),
                              testthat::test_path("..", ".."))
+  expect_true("DESCRIPTION" %in% basename(paths))
   expect_identical(files_matching(paths, source_scan_patterns()), character())
 })
 
@@ -670,8 +675,8 @@ test_that("Both scans report a local path planted in a package tree", {
   put(tree, file.path(".git", "logs", "HEAD"), local_path)
   put(tree, file.path("tests", "testthat", "fixture", ".git"),
       paste("gitdir:", local_path))
-  expect_gt(length(shipped_scan_files(tree, tree)), 0L)
-  expect_gt(length(source_scan_files(tree, tree)), 0L)
+  expect_true("DESCRIPTION" %in% basename(shipped_scan_files(tree, tree)))
+  expect_true("DESCRIPTION" %in% basename(source_scan_files(tree, tree)))
   expect_identical(report(tree, tree),
                    list(shipped = character(), source = character()))
   put(tree, file.path("R", "code.R"),
@@ -687,7 +692,8 @@ test_that("Both scans report a local path planted in a package tree", {
   put(installed, "NEWS.md", "No news.")
   put(installed, file.path("R", "pkg.rdb"), local_path)
   put(installed, file.path("help", "aliases.rds"), local_path)
-  expect_gt(length(shipped_scan_files(installed, check)), 0L)
+  expect_true("DESCRIPTION" %in% basename(shipped_scan_files(installed, check)))
+  expect_true("DESCRIPTION" %in% basename(source_scan_files(installed, check)))
   expect_identical(report(installed, check),
                    list(shipped = character(), source = character()))
   put(installed, "NEWS.md", paste("See", local_path))
