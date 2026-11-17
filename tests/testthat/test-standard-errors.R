@@ -1062,6 +1062,9 @@ test_that("A risk whose reports agree with the target may round to zero", {
   expect_false(finite_risk_or_stop(simpleError("scaled risk smse_info is not representable"),
                                    "smse_boot"))
   expect_false(finite_risk_or_stop(simpleError("scaled risk smse_boot failed"), "smse_boot"))
+  expect_true(finite_risk_or_stop(
+    simpleError("scaled risk smse_boot is not representable in double precision."),
+    "smse_boot"))
 })
 
 # Requirement: Numerical range
@@ -1252,15 +1255,24 @@ in_source_folder <- function() is_source_tree(testthat::test_path("..", ".."))
 test_that("The source folder is told apart from an installed package", {
   base <- tempfile("irtse-tree-")
   on.exit(unlink(base, recursive = TRUE), add = TRUE)
-  tree <- function(name, folders) {
+  tree <- function(name, folders, files = character()) {
     path <- file.path(base, name)
     dir.create(path, recursive = TRUE)
     for (folder in folders) dir.create(file.path(path, folder))
+    for (file in files) {
+      dir.create(dirname(file.path(path, file)), recursive = TRUE, showWarnings = FALSE)
+      writeLines("A stand-in.", file.path(path, file))
+    }
     path
   }
   expect_true(is_source_tree(tree("source", "R")))
-  expect_false(is_source_tree(tree("installed", c("R", "Meta"))))
-  expect_false(is_source_tree(tree("meta_only", "Meta")))
+  # A Meta folder without Meta/package.rds: devtools writes a vignette index
+  # into one in a source folder with vignettes, and on a case-insensitive file
+  # system a folder named meta also answers to Meta.
+  expect_true(is_source_tree(tree("vignette_index", "R", "Meta/vignette.rds")))
+  expect_true(is_source_tree(tree("lower_case_meta", c("R", "meta"))))
+  expect_false(is_source_tree(tree("installed", "R", "Meta/package.rds")))
+  expect_false(is_source_tree(tree("package_rds_only", character(), "Meta/package.rds")))
   expect_false(is_source_tree(tree("neither", character())))
 })
 
