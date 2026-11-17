@@ -114,7 +114,7 @@ test_that("Both rules worse than both fixed reports near a zero of Delta_2", {
     round(risk$smse_select / min(risk$smse_info, risk$smse_boot) - 1, 3),
     0.181
   )
-  expect_equal(risk$p_select[["none"]], 0)
+  expect_identical(risk$p_select[["none"]], 0)
   expect_identical(names(risk$p_select), c("info", "boot", "none"))
   expect_equal(sum(risk$p_select), 1, tolerance = 1e-12)
 })

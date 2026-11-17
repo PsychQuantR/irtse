@@ -284,6 +284,7 @@ test_that("Every exported function rejects a trapped a before dispatch", {
 })
 
 # Requirement: Input validation at the boundary
+# spec-example: irtse-standard-errors / classed and named arguments
 test_that("Every exported function rejects classed numeric arguments in order", {
   error_message <- function(expr) tryCatch({ force(expr); "" }, error = conditionMessage)
   plain <- list(a = c(1, 1), b = c(0, 0), theta = 0)
