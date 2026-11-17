@@ -1,6 +1,8 @@
-# The number of abilities whose estimating equation is evaluated together: the
-# temporary matrices of a block have at most 1e6 elements, and a block has at
-# least one row.
+# The number of abilities whose estimating equation is evaluated together: at
+# most 1e6 / J, and at least one. A block of n abilities makes temporary matrices
+# of n rows and at most 2J + 2 columns (the residual's terms in score_terms()
+# have 2J, the scaled terms of the equation J + 2), so their size does not
+# depend on the number of abilities.
 equation_block <- function(J) max(1L, as.integer(floor(1e6 / J)))
 
 # The estimating equation at each ability `theta` with its total `T` (recycled
