@@ -98,7 +98,8 @@ remain subject to the following numerical limits.
   a non-zero value, except for a probability in `p_select` below the smallest
   positive double, which can be returned as zero, the lattice identification
   described below, a risk term whose report and target are computed as the
-  same double, exactly cancelling terms of `diff`, and a design average whose
+  same double, terms of `diff` whose scaled sum is computed as exactly 0, and a
+  design average whose
   item terms are all computed as 0. In the third case,
   the squared difference is zero, also where the exact report and target
   differ by far more than the rounding of a double; for example,

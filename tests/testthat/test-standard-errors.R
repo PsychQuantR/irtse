@@ -1240,6 +1240,11 @@ retired_risk_sentences <- c(
   "with B set to 1042 * log(2) / 512 the exact",
   "The outcomes of the calls named here")
 
+# Whether the tests run in the source folder of the package (it has an R
+# folder two levels up), as opposed to the installed package under R CMD check.
+# A document that the source folder should have is then required, not skipped.
+in_source_folder <- function() dir.exists(testthat::test_path("..", "..", "R"))
+
 # The exported functions whose help pages carry the template of the numerical
 # limits.
 template_pages <- c("se_info", "se_boot", "design_cumulants", "delta2", "delta3",
@@ -1250,8 +1255,10 @@ template_pages <- c("se_info", "se_boot", "design_cumulants", "delta2", "delta3"
 # the database are joined without a separator; a space between them would
 # stand between a code span and the comma, semicolon or bracket next to it.
 help_page_text <- function(name, db) {
-  rd_path <- testthat::test_path("..", "..", "man", paste0(name, ".Rd"))
-  if (file.exists(rd_path)) return(readLines(rd_path, warn = FALSE))
+  if (in_source_folder()) {
+    rd_path <- testthat::test_path("..", "..", "man", paste0(name, ".Rd"))
+    return(readLines(rd_path, warn = FALSE))
+  }
   paste(as.character(db[[paste0(name, ".Rd")]]), collapse = "")
 }
 
@@ -1279,8 +1286,9 @@ expect_risk_limit_document <- function(lines, name) {
 # Scenario: Documents state the rules at the limits of the double range
 # spec-example: irtse-standard-errors / documents on the limits of the double range
 test_that("README states the rules at the limits of the double range", {
+  if (!in_source_folder()) skip("README.md is not part of the built or installed package")
   readme <- testthat::test_path("..", "..", "README.md")
-  if (!file.exists(readme)) skip("README.md is not part of the built or installed package")
+  expect_true(file.exists(readme))
   expect_risk_limit_document(readLines(readme, warn = FALSE), "README")
 })
 
@@ -1288,8 +1296,7 @@ test_that("README states the rules at the limits of the double range", {
 # Scenario: Documents state the rules at the limits of the double range
 # spec-example: irtse-standard-errors / documents on the limits of the double range
 test_that("The eight help pages state the rules at the limits of the double range", {
-  source_pages <- dir.exists(testthat::test_path("..", "..", "man"))
-  db <- if (source_pages) NULL else tools::Rd_db("irtse")
+  db <- if (in_source_folder()) NULL else tools::Rd_db("irtse")
   for (name in template_pages) expect_risk_limit_document(help_page_text(name, db), name)
 })
 
@@ -1452,18 +1459,20 @@ test_that("The documents keep out the forms that the sentence check does not rea
   expect_identical(document_restriction_failures("\\code{x} and `y`, 50\\%.", "help"),
                    character())
 
-  root <- testthat::test_path("..", "..")
-  template <- file.path(root, "man-roxygen", "numerical-accuracy.R")
-  if (!file.exists(template)) {
+  if (!in_source_folder()) {
     skip("The source files of the documents are not part of the installed package")
   }
+  root <- testthat::test_path("..", "..")
+  template <- file.path(root, "man-roxygen", "numerical-accuracy.R")
+  readme <- file.path(root, "README.md")
+  expect_true(file.exists(template))
+  expect_true(file.exists(readme))
   pages <- list.files(file.path(root, "man"), pattern = "[.]Rd$", full.names = TRUE)
   expect_length(pages, 9L)
   for (path in c(pages, template)) {
     expect_identical(document_restriction_failures(readLines(path, warn = FALSE), "help"),
                      character(), info = basename(path))
   }
-  readme <- file.path(root, "README.md")
   expect_identical(document_restriction_failures(readLines(readme, warn = FALSE), "readme"),
                    character())
 })
@@ -1667,9 +1676,16 @@ test_that("The scans skip the files that testthat leaves after a failing run", {
   put(file.path("tests", "testthat", "testthat-problems.rds"), local_path)
   put(file.path("tests", "testthat", "_problems", "test-f.R"), local_path)
   put(file.path("tests", "testthat", "test-f.R"), paste("# see", local_path))
+  # Files of the same names below a folder that ships are still read.
+  put(file.path("inst", "tests", "testthat", "_problems", "test-g.R"), local_path)
+  put(file.path("inst", "tests", "testthat", "testthat-problems.rds"), local_path)
   planted <- file.path(base, "tests", "testthat", "test-f.R")
-  expect_identical(files_matching(shipped_scan_files(base, base), shipped_scan_patterns()),
-                   planted)
+  shipped <- file.path(base, "inst", "tests", "testthat",
+                       c("_problems/test-g.R", "testthat-problems.rds"))
+  expect_setequal(files_matching(shipped_scan_files(base, base), shipped_scan_patterns()),
+                  c(planted, shipped))
+  # The source scan lists DESCRIPTION, README.md, NEWS.md and the folders R,
+  # man and tests; inst is not among them.
   expect_identical(files_matching(source_scan_files(base, base), source_scan_patterns()),
                    planted)
 })

@@ -49,12 +49,15 @@ relative_to_root <- function(paths, root) {
 # tests/testthat/_problems after a failing run. They hold the output of the
 # failures, which can name paths of the machine the tests ran on, and the next
 # run would report them; they are not package files, .Rbuildignore keeps them
-# out of the built package, and the scans skip them.
+# out of the built package, and the scans skip them. Only the two at the root
+# of the tree are skipped, so `root` is required for it: a file of the same name
+# in a folder that would ship (inst/tests/testthat, say) is still read.
 scannable_files <- function(paths, installed = TRUE, root = NULL) {
   inside <- if (is.null(root)) paths else relative_to_root(paths, root)
   serialized <- installed & grepl("[.](rdb|rdx|rds)$", inside, ignore.case = TRUE)
   version_control <- grepl("(^|/)[.]git(/|$)", inside)
-  leftover <- grepl("(^|/)tests/testthat/(testthat-problems[.]rds$|_problems(/|$))", inside)
+  leftover <- !is.null(root) &
+    grepl("^tests/testthat/(testthat-problems[.]rds$|_problems(/|$))", inside)
   paths[!serialized & !version_control & !leftover]
 }
 
