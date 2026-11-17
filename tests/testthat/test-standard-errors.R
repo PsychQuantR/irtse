@@ -934,13 +934,16 @@ test_that("Errors from intermediate values may stop an otherwise representable r
 })
 
 # Requirement: Numerical range
-# spec-example: irtse-standard-errors / errors from intermediate values
+# The values that the Example "errors from intermediate values" names. This
+# test makes no call of that Example, so it does not carry the Example's
+# marker; the marked test is the one above.
 test_that("The values named for the calls that stop on an intermediate follow from the definitions", {
-  # The package stops on both calls of the Example, so the test above never
-  # compares the column "Value that would be returned". Here each named value
-  # is computed apart from the package, from the definitions the specification
-  # gives: kappa_r and k_r of the requirement on the design cumulants, and the
-  # formula of the third-order coefficient.
+  # Where the package stops on both calls of the Example (as it does at the
+  # commit that added this test, on R 4.6.1, aarch64 macOS), the test above
+  # never compares the column "Value that would be returned". Here each named
+  # value is computed apart from the package, from the definitions the
+  # specification gives: kappa_r and k_r of the requirement "Design
+  # cumulants", and the formula of the requirement "Third-order coefficient".
   logistic <- function(eta) {
     ifelse(eta < 0, exp(eta) / (1 + exp(eta)), 1 / (1 + exp(-eta)))
   }
@@ -979,14 +982,15 @@ test_that("The values named for the calls that stop on an intermediate follow fr
   # k3: the item at its difficulty contributes exactly 0; the other item has
   # P = x / (1 + x) with x = exp(-730), so u (1 - 2P) = x (1 - x) / (1 + x)^3.
   # The named value is a subnormal number, where neighbouring doubles are
-  # 2^-1074 apart, a relative 1.1e-6 of this value. It is compared within two
-  # such spacings and, free of that rounding, on the logarithm.
+  # 2^-1074 apart, a relative 1.1e-6 of this value, so it is compared within
+  # two such spacings. That the cumulant of such a design is exp(eta) / 2
+  # more closely than that spacing shows is measured on the same design with
+  # the difficulty 700 in place of 730, where exp(-700) / 2 is a normal number.
   named_k3 <- exp(-730) / 2
   expect_true(named_k3 > 0 && named_k3 < 2^-1022)
   expect_lte(abs(k[["k3"]] - named_k3), 2 * 2^-1074)
-  x <- exp(-730)
-  log_k3 <- -log(2) - 730 + log1p(-x) - 3 * log1p(x)
-  expect_lt(abs(log_k3 - (-730 - log(2))), 1e-12)
+  at_700 <- cumulants(c(1, 1000), c(700, 0), 0)[["k3"]]
+  expect_lt(abs(at_700 / (exp(-700) / 2) - 1), 1e-12)
   # "about 4.6e-318": within half a unit of the last digit given.
   expect_lt(abs(named_k3 - 4.6e-318), 0.05e-318)
   # Delta_3: with k3, k5 and k7 below 1e-317, only the terms in k4 k6 and
