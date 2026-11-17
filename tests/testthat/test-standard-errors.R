@@ -943,7 +943,7 @@ test_that("README and help retain both item-level accuracy qualifications", {
 
 normalise_document_text <- function(text) {
   text <- paste(text, collapse = " ")
-  text <- gsub("\\\\code\\{((?:[^{}\\\\]|\\\\.)*?)\\}", "\\1", text, perl = TRUE)
+  text <- gsub("(?s)\\\\code\\{((?:[^{}\\\\]|\\\\.)*?)\\}", "\\1", text, perl = TRUE)
   text <- gsub("\\\\([%{}^])", "\\1", text, perl = TRUE)
   text <- gsub("`", "", text, fixed = TRUE)
   gsub("[[:space:]]+", " ", text)
@@ -1115,16 +1115,27 @@ test_that("The document sentence check compares fixed text from first word to fu
   expect_true(check(sub("largest double.", "largest double.5 only", rd, fixed = TRUE)))
 
   # A code span is replaced by its content as it stands: white space inside the
-  # braces is kept, so a space that splits a word, or that completes a retired
-  # sentence, is seen.
+  # braces is kept on both sides, so a space that splits a word, or that
+  # completes a retired sentence, is seen.
   expect_false(check(sub("largest double", "lar\\code{ gest} double", rd, fixed = TRUE)))
   expect_true(grepl(
     "A positive risk below 2^-1074 stops the call",
     normalise_document_text("A positive risk below\\code{ 2^-1074} stops the call."),
     fixed = TRUE))
-  # With white space between the macro and its brace R reads no code span (it
-  # reports the page and drops the rest of the section), so the text stays as
-  # written and completes no sentence.
+  expect_true(grepl(
+    "A positive risk below 2^-1074 stops the call",
+    normalise_document_text("A positive risk below \\code{2^-1074 }stops the call."),
+    fixed = TRUE))
+  # The content may hold a backslash directly in front of a line break. The
+  # text of an installed help page keeps its line breaks, so the span has to be
+  # replaced there as it is where the lines of a source file are joined.
+  expect_true(grepl(
+    "A positive risk below 2^-1074 stops the call",
+    normalise_document_text("A positive risk below\\code{ 2^-1074 stops the call\\\n} is here."),
+    fixed = TRUE))
+  # With white space between the macro and its brace R reads no code span and
+  # reports the page; with a space or a tab on the same line it also drops the
+  # rest of the section. The text stays as written and completes no sentence.
   expect_false(check(sub("\\code{2^-1074}", "\\code {2^-1074}", rd, fixed = TRUE)))
 
   clause <- function(raw) {
