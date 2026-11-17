@@ -96,10 +96,12 @@ remain subject to the following numerical limits.
   containing
   "representable"; the package does not return `Inf`, `NaN`, or 0 in place of
   a non-zero value, except for a probability in `p_select` below the smallest
-  positive double, the lattice identification described below, a risk term
-  whose report agrees with its target to within rounding, or exactly cancelling
-  terms of `diff`. In the third case,
-  the squared difference is zero; for example,
+  positive double, which can be returned as zero, the lattice identification
+  described below, a risk term whose report and target are computed as the
+  same double, exactly cancelling terms of `diff`, and a design average whose
+  item terms are all computed as 0. In the third case,
+  the squared difference is zero, also where the exact report and target
+  differ by far more than the rounding of a double; for example,
   `risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot` can be zero even
   though the mathematical risk is positive. A risk whose logarithm, as this
   summation computes it, is below `log(2^-1074)` stops the call with
@@ -128,17 +130,19 @@ remain subject to the following numerical limits.
   wrong by a large factor. In `risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r +
   2^-52, "MLE")` with `r` set to `0.685794632511088` the report and the target
   agree to
-  a relative 1.1e-13, the exact `smse_boot` is 2.05 times `2^-1074`, which is
-  representable, and the call stopped. With `r` set to `0.6907256300571373` and
-  the ability `-r + 2^-49` the exact
-  value is 0.96 times `2^-1074`, which is below the smallest positive double,
-  and the call returned `2^-1074`. At the largest double, in `risk_diff(rep(512,
-  2), c(-B, B), 0, "MLE")` with `B` set to `1042 * log(2) / 512` the exact
-  `smse_info` is above the largest double by a relative 9.9e-15 and the call
-  returned 1.7976931348622732e308. In general the package does not claim that
-  the outcome agrees with the side of either limit on which the exact risk lies.
-  The outcomes of the calls named here were measured with R 4.6.1 on aarch64
-  macOS and can differ on another platform.
+  a relative 1.1e-13, the exact `smse_boot` for the supplied numbers is 2.05
+  times `2^-1074`, which is representable, and the call stopped. With `r` set to
+  `0.6907256300571373` and the ability `-r + 2^-49` the exact value for the
+  supplied numbers is 0.96 times `2^-1074`, which is below the smallest
+  positive double, and the call returned `2^-1074`. At the largest double, in
+  `risk_diff(rep(512, 2), c(-B, B), 0, "MLE")` with `B` set to
+  `1.4106628166864512`, the double that R gives for `1042 * log(2) / 512`, the
+  exact `smse_info` is above the largest double by a relative 9.9e-15 and the
+  call returned 1.7976931348622732e308. In general the package does not claim
+  that the outcome agrees with the side of either limit on which the exact risk
+  lies. The outcomes stated for the calls at the abilities `-0.72 + 5e-9`,
+  `-r + 2^-52` and `-r + 2^-49` and for the call with `B` were measured with
+  R 4.6.1 on aarch64 macOS and can differ on another platform.
   For `diff`, cancellation multiplies the errors of its terms by its condition
   number (the sum of the absolute terms divided by the absolute sum). Nothing
   said above about the limits of the double range or about subnormal values
@@ -151,6 +155,12 @@ remain subject to the following numerical limits.
   A nonzero `diff` whose logarithm of the absolute value, computed in the same
   way, is below `log(2^-1074)` stops the call with `representable` and the field
   name.
+  In the fifth case, the term of an item is formed from its cumulant
+  polynomial (`1 - 6u` for `k4`, `1 - 12u` for `k5`, and so on), and that
+  polynomial can be computed as exactly 0 where its value is not. With R 4.6.1
+  on aarch64 macOS, `design_cumulants(1, 0, acosh(2))` returns `k4` = 0 and
+  `design_cumulants(1, 0, 2.2924316695611773)` returns `k5` = 0, although their
+  values at the computed logits are about -1.3e-17 and 2.3e-17.
   For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
   representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
   because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
