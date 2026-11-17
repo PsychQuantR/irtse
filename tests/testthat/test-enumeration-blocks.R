@@ -22,10 +22,10 @@ test_that("The estimating equation in blocks gives the same doubles and the same
     wle = function() irtse:::estimate_equation(theta, a, b, "WLE", totals),
     scalar_total = function() irtse:::estimate_equation(theta, a, b, "WLE", 0),
     no_rows = function() irtse:::estimate_equation(numeric(0), a, b, "MLE", numeric(0)),
-    # The first row fails only the check of the derivative and the second the
-    # check of the value. Evaluated at once the value check comes first, so the
-    # error names the estimating equation; a block of one row must not report
-    # the first row's derivative instead.
+    # The first row fails only the check of the derivative, the second the check
+    # of the value (and also that of the derivative). Evaluated at once the value
+    # check comes first, so the error names the estimating equation; a block of
+    # one row must not report the first row's derivative instead.
     error_order = function() {
       irtse:::estimate_equation(c(1e-308, 1e-308), c(1.5e308, 1.5e308), c(0, 0), "MLE",
                                 c(1.7e308, 0))
@@ -36,13 +36,31 @@ test_that("The estimating equation in blocks gives the same doubles and the same
     # reaches the second row's logit before any deferred check runs and must name
     # a logit as well.
     logit_after_value = function() {
-      irtse:::estimate_equation(c(1e-308, 2), c(1.5e308, 1.5e308), c(0, 0), "MLE", c(0, 0))
+      irtse:::estimate_equation(c(1e-300, 2), c(1.5e308, 1.5e308), c(0, 0), "MLE", c(0, 0))
     }
   )
+  # The rows of the two error cases fail the checks that their comments name.
+  checks_failed <- function(theta, total) {
+    row <- irtse:::equation_rows(theta, c(1.5e308, 1.5e308), c(0, 0), "MLE", total)
+    c(largest = !is.finite(row$largest),
+      value = !is.finite(sign(row$value) * exp(log(abs(row$value)) + row$scale)),
+      derivative = !is.finite(-exp(row$log_information) + row$correction_derivative))
+  }
+  expect_identical(checks_failed(1e-308, 1.7e308),
+                   c(largest = FALSE, value = FALSE, derivative = TRUE))
+  expect_identical(checks_failed(1e-308, 0),
+                   c(largest = FALSE, value = TRUE, derivative = TRUE))
+  expect_identical(checks_failed(1e-300, 0),
+                   c(largest = FALSE, value = TRUE, derivative = FALSE))
   expect_match(outcome_of(calls$error_order), "estimating equation is not representable",
                fixed = TRUE)
   expect_match(outcome_of(calls$logit_after_value), "a logit is not representable",
                fixed = TRUE)
+  for (name in c("mle", "wle", "scalar_total", "no_rows")) {
+    expect_type(outcome_of(calls[[name]]), "list")
+  }
+  expect_identical(calls$scalar_total(),
+                   irtse:::estimate_equation(theta, a, b, "WLE", rep(0, 11)))
   for (name in names(calls)) {
     reference <- outcome_of(calls[[name]])
     for (size in c(1, 2, 7)) {
@@ -58,15 +76,52 @@ test_that("se_boot() and risk_diff() return the same doubles when root solving r
   a <- rep(c(0.7, 1.4), 4)
   b <- seq(-1.2, 1.5, length.out = 8)
   calls <- function() {
-    list(se_boot(a, b, 0.3, "MLE"), se_boot(a, b, 0.3, "WLE"),
+    list(se_boot(a, b, 0.3, "MLE"),
          se_boot(c(0.7, 1.3, 2.1), c(-0.4, 0.2, 1.1), 0.35, "WLE"),
-         risk_diff(a, b, -0.2, "MLE"), risk_diff(a, b, -0.2, "WLE", margin = 0.5),
+         risk_diff(a, b, -0.2, "MLE"),
          se_boot(1, 0, 0, "WLE"), outcome_of(function() se_boot(1, 0, 0, "MLE")))
   }
+  # The WLE calls on the eight items evaluate their root grid point by point at a
+  # block size of 1, which takes minutes; they run with blocks of 2 and 7 only.
+  wle_calls <- function() {
+    list(se_boot(a, b, 0.3, "WLE"), risk_diff(a, b, -0.2, "WLE", margin = 0.5))
+  }
   reference <- calls()
+  wle_reference <- wle_calls()
   for (size in c(1, 2, 7)) {
     expect_identical(with_equation_block(size, calls), reference, info = size)
   }
+  for (size in c(2, 7)) {
+    expect_identical(with_equation_block(size, wle_calls), wle_reference, info = size)
+  }
+})
+
+# Requirement: Limits of exact enumeration
+# Scenario: Root solving in blocks of abilities
+test_that("Root solving passes the estimating equation at most max(1, floor(1e6 / J)) abilities at a time", {
+  expect_identical(irtse:::equation_block(3000), 333L)
+  expect_identical(irtse:::equation_block(1e6), 1L)
+  expect_identical(irtse:::equation_block(2e6), 1L)
+  seen <- numeric()
+  sizes <- integer()
+  original <- irtse:::equation_rows
+  testthat::local_mocked_bindings(
+    equation_block = function(J) {
+      seen <<- c(seen, J)
+      4L
+    },
+    equation_rows = function(theta, ...) {
+      sizes <<- c(sizes, length(theta))
+      original(theta, ...)
+    },
+    .package = "irtse")
+  irtse:::estimate_equation(seq(-2, 2, length.out = 11), c(0.7, 1.3, 2.1),
+                            c(-0.4, 0.2, 1.1), "MLE", 0)
+  # Eleven abilities in blocks of four reach the row computation as 4, 4 and 3;
+  # the block size is asked for the number of items, 3, not for the number of
+  # abilities.
+  expect_identical(sizes, c(4L, 4L, 3L))
+  expect_identical(unique(seen), 3)
 })
 
 # Replace the enumeration of attainable totals by a function that fails, so that a
@@ -90,7 +145,11 @@ test_that("A lower bound of the atom count above the limit refuses the design be
     list(call = function() risk_diff(rep(1, 2002), rep(0, 2002), 0, "MLE"),
          bound = "at least 2001 atoms", limit = "risk_diff() limit of 2000"),
     list(call = function() risk_diff(rep(1, 2000), rep(0, 2000), 0, "WLE"),
-         bound = "at least 2001 atoms", limit = "risk_diff() limit of 2000")
+         bound = "at least 2001 atoms", limit = "risk_diff() limit of 2000"),
+    # Weights 1 and 2: the bound is 2003, the atom count 3004; the message gives
+    # the bound.
+    list(call = function() risk_diff(rep(c(1, 2), 1001), rep(0, 2002), 0, "WLE"),
+         bound = "at least 2003 atoms", limit = "risk_diff() limit of 2000")
   )
   for (row in rows) {
     message <- outcome_of(row$call)
@@ -111,7 +170,9 @@ test_that("A design whose lower bound equals the limit is enumerated", {
     function() se_boot(rep(1, 100001), rep(0, 100001), 0, "MLE"),
     function() se_boot(rep(1, 99999), rep(0, 99999), 0, "WLE"),
     function() risk_diff(rep(1, 2001), rep(0, 2001), 0, "MLE"),
-    function() risk_diff(rep(1, 1999), rep(0, 1999), 0, "WLE")
+    function() risk_diff(rep(1, 1999), rep(0, 1999), 0, "WLE"),
+    # Weights 1 and 2 under the MLE: bound 1999, below the limit.
+    function() risk_diff(rep(c(1, 2), 1000), rep(0, 2000), 0, "MLE")
   )
   for (call in calls) {
     expect_identical(outcome_of(call), "error: the attainable totals were enumerated")
