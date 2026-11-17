@@ -26,7 +26,7 @@ test_that("Positive risks below the smallest double name smse_boot", {
 
 # Requirement: Numerical range
 # Scenario: A risk representable only as a subnormal number
-test_that("Subnormal risks are accurate to one smallest-double spacing", {
+test_that("The three subnormal risks of the Scenario are within one spacing of their values", {
   displacements <- c(5e-9, 1e-8, 1e-7)
   units <- c(1.599, 6.397, 639.73)
   for (i in seq_along(displacements)) {
@@ -58,7 +58,7 @@ test_that("An exact subnormal power meets the relative accuracy bound", {
 
 # Requirement: Numerical range
 # Scenario: A risk at the upper end of the double range
-test_that("Risks outside the upper boundary band have one permitted outcome", {
+test_that("Risks a relative 7.2e-7 from the largest double have one permitted outcome", {
   B0 <- 1042 * log(2) / 512
   B <- B0 * (1 - 1e-9)
   got <- risk_diff(rep(512, 2), c(-B, B), 0, "MLE")$smse_info
@@ -71,7 +71,7 @@ test_that("Risks outside the upper boundary band have one permitted outcome", {
 
 # Requirement: Numerical range
 # Scenario: A risk at the upper end of the double range
-test_that("Risks inside the upper boundary band have two permitted outcomes", {
+test_that("Risks within a relative 1e-12 of the largest double may stop or return a finite number", {
   B0 <- 1042 * log(2) / 512
   expect_true(upper_risk_outcome_conforms(
     risk_diff(rep(512, 2), c(-B0, B0), 0, "MLE")$smse_info

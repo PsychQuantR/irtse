@@ -3,3 +3,5 @@
 ^README\.md$
 ^man-roxygen$
 ^\.git$
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$

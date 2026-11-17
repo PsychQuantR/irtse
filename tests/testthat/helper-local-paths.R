@@ -13,7 +13,17 @@ posix_local_path_pattern <- function() {
 # tag (as in the help index of an installed package) is not taken for a path.
 # Two divisions with a space before each slash and none after are taken for a
 # path (a false alarm); respacing the expression avoids it.
-# A path whose second component begins with a space is not found.
+# A path whose first folder is not one of the twelve roots listed above and
+# whose second component begins with a space is not found; with a listed root
+# the first pattern finds it. Forms that occur in public packages and are not
+# found (the test "Path forms that the scan does not find" runs each through
+# the patterns): a file URL (file: and three slashes), a path written directly
+# after a compiler flag (-I or -L), an entry of a search path that follows a
+# colon after a name of two or more letters (bin: followed by the next path;
+# after a single letter the drive pattern finds it), a path in the home folder
+# written with a
+# tilde and a single file name (~ and the name), and one written with a tilde
+# and a user name.
 additional_local_path_patterns <- function() {
   c(posix_local_path_pattern(),
     "(^|[^A-Za-z0-9._/:-])/[A-Za-z0-9._~-]+/[A-Za-z0-9._~/-]+",
@@ -35,11 +45,17 @@ relative_to_root <- function(paths, root) {
 # The default preserves installed-package callers; source scans opt in explicitly.
 # With `root`, what belongs to version control is decided from the path below
 # that root, so that the name of a folder above the tree does not count.
+# testthat writes tests/testthat/testthat-problems.rds and the folder
+# tests/testthat/_problems after a failing run. They hold the output of the
+# failures, which can name paths of the machine the tests ran on, and the next
+# run would report them; they are not package files, .Rbuildignore keeps them
+# out of the built package, and the scans skip them.
 scannable_files <- function(paths, installed = TRUE, root = NULL) {
   inside <- if (is.null(root)) paths else relative_to_root(paths, root)
   serialized <- installed & grepl("[.](rdb|rdx|rds)$", inside, ignore.case = TRUE)
   version_control <- grepl("(^|/)[.]git(/|$)", inside)
-  paths[!serialized & !version_control]
+  leftover <- grepl("(^|/)tests/testthat/(testthat-problems[.]rds$|_problems(/|$))", inside)
+  paths[!serialized & !version_control & !leftover]
 }
 
 # References to the private tracker, written in pieces so that this file does
