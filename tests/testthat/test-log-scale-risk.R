@@ -131,6 +131,11 @@ test_that("Exactly cancelling risk differences return zero on both scales", {
   expect_error(irtse:::scaled_risk_sum(c(-800, -800), c(1, 1), c(2, -1),
                                       what = "diff"),
                "scaled risk diff is not representable", fixed = TRUE)
+  # The call that the first paragraph of the requirement names: a term whose
+  # ratio to the largest term underflows when the terms are scaled is lost, so
+  # the result is 0, while the exact sum is exp(-70).
+  expect_identical(irtse:::scaled_risk_sum(c(690, 690, -70), c(1, -1, 1), c(1, 1, 1),
+                                           what = "diff"), 0)
 })
 
 # Requirement: Numerical range

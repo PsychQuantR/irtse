@@ -1343,7 +1343,7 @@ test_that("The document sentence check compares fixed text from first word to fu
   for (ch in c("\t", "\n", "\v", "\f", "\r", "  ")) {
     expect_true(check(spaced(ch)), info = sprintf("U+%04X", utf8ToInt(substr(ch, 1, 1))))
   }
-  for (ch in c(" ", " ", "　")) {
+  for (ch in c("\u00a0", "\u2009", "\u3000")) {
     expect_false(check(spaced(ch)), info = sprintf("U+%04X", utf8ToInt(ch)))
   }
 
