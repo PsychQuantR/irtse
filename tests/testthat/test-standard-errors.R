@@ -457,19 +457,9 @@ test_that("Package metadata matches the specification", {
 
 # Requirement: Package metadata and documentation
 test_that("Package files contain no local paths or private issue references", {
-  paths <- list.files(system.file(package = "irtse"), recursive = TRUE,
-                      full.names = TRUE, all.files = TRUE)
-  source_r <- testthat::test_path("..", "..", "R")
-  if (dir.exists(source_r)) paths <- c(paths, list.files(source_r, full.names = TRUE))
-  paths <- scannable_files(paths, installed = !dir.exists(source_r))
-  forbidden_path <- posix_local_path_pattern()
-  private_issue <- paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+")
-  bad <- vapply(unique(paths), function(path) {
-    bytes <- readBin(path, "raw", n = file.info(path)$size)
-    length(grepRaw(forbidden_path, bytes)) > 0L ||
-      length(grepRaw(private_issue, bytes)) > 0L
-  }, logical(1))
-  expect_false(any(bad), info = paste(names(bad)[bad], collapse = ", "))
+  paths <- shipped_scan_files(system.file(package = "irtse"),
+                              testthat::test_path("..", ".."))
+  expect_identical(files_matching(paths, shipped_scan_patterns()), character())
 })
 
 # Requirement: Numerical range
@@ -643,28 +633,9 @@ test_that("Suggests declares the required testthat version", {
 
 # Requirement: Package metadata and documentation
 test_that("All source files exclude local paths and private tracker references", {
-  source <- testthat::test_path("..", "..")
-  if (dir.exists(file.path(source, "R"))) {
-    paths <- c(file.path(source, c("DESCRIPTION", "README.md", "NEWS.md")),
-               unlist(lapply(c("R", "man", "tests"), function(dir) {
-                 list.files(file.path(source, dir), recursive = TRUE,
-                            full.names = TRUE, all.files = TRUE)
-               }), use.names = FALSE))
-  } else {
-    paths <- list.files(system.file(package = "irtse"), recursive = TRUE,
-                        full.names = TRUE, all.files = TRUE)
-  }
-  paths <- scannable_files(paths, installed = !dir.exists(file.path(source, "R")))
-  patterns <- c(paste0("[A-Za-z]", ":", "\\\\"),
-                paste0("Psych", "Quant/[^\r\n]*", "#", "[0-9]+"),
-                paste0("/", "issues", "/", "[0-9]+"))
-  patterns <- c(patterns, additional_local_path_patterns())
-  bad <- vapply(paths, function(path) {
-    bytes <- readBin(path, "raw", n = file.info(path)$size)
-    any(vapply(patterns, function(pattern) length(grepRaw(pattern, bytes)) > 0L,
-               logical(1)))
-  }, logical(1))
-  expect_false(any(bad), info = paste(paths[bad], collapse = ", "))
+  paths <- source_scan_files(system.file(package = "irtse"),
+                             testthat::test_path("..", ".."))
+  expect_identical(files_matching(paths, source_scan_patterns()), character())
 })
 
 # Requirement: Exact law of the sufficient statistic
