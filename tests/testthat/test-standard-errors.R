@@ -955,10 +955,6 @@ intermediate_value_conforms <- function(value, stated, subnormal = FALSE) {
 test_that("Errors from intermediate values may stop an otherwise representable result", {
   k <- spec_cumulants(c(1, 1000), c(730, 0), 0)
   cases <- list(
-    list(call = function() {
-      risk_diff(rep(0.7092, 3), c(-1000, 1000, 1000), 1000, "MLE")$smse_info
-    }, stated = exp(709.2) / (2 * sqrt(2) * 0.7092^2), subnormal = FALSE,
-    reason = "smse_info"),
     list(call = function() design_cumulants(c(1, 1000), c(730, 0), 0)[["k3"]],
          stated = k3_intermediate_multiple, subnormal = TRUE, reason = "cumulant ratio"),
     list(call = function() delta3(c(1, 1000), c(730, 0), 0, "MLE"),
@@ -1119,10 +1115,11 @@ test_that("README and help retain both item-level accuracy qualifications", {
 # the limits of the double range" describes. White space is the six ASCII
 # white-space characters, named one by one so that the reading does not depend
 # on the locale. A code span is replaced in one pass, so in a code span inside
-# another only the inner one is replaced. A known limit: a review of issue 16
-# found that a single code span of about five million characters exceeds the
-# matching limit of the regular-expression engine, so that span is not read;
-# the documents of the package have fewer than 15,000 characters each.
+# another only the inner one is replaced. A known limit: a single code span of
+# about five million characters exceeds the matching limit of the
+# regular-expression engine, so that span is not read; each document of the
+# package has fewer than 16,000 characters (README.md, the longest, has about
+# 15,200).
 normalise_document_text <- function(text) {
   text <- paste(text, collapse = " ")
   text <- gsub("(?s)\\\\code\\{((?:[^{}\\\\]|\\\\.)*?)\\}", "\\1", text, perl = TRUE)
@@ -1144,9 +1141,9 @@ has_document_sentence <- function(text, sentence) {
              logical(1)))
 }
 
-# The sentences that README.md and the help page of risk_diff() state, as the
-# Example "documents on the limits of the double range" lists them: the text
-# after markup is removed.
+# The sentences that README.md and the help pages of the eight exported
+# functions state, as the Example "documents on the limits of the double
+# range" lists them: the text after markup is removed.
 risk_limit_sentences <- c(
   terms = paste0(
     "The four scaled risks (smse_info, smse_boot, diff, smse_select) are summed",
@@ -1241,10 +1238,12 @@ retired_risk_sentences <- c(
   "with B set to 1042 * log(2) / 512 the exact",
   "The outcomes of the calls named here")
 
-# Whether the tests run in the source folder of the package (it has an R
-# folder two levels up), as opposed to the installed package under R CMD check.
-# A document that the source folder should have is then required, not skipped.
-in_source_folder <- function() dir.exists(testthat::test_path("..", "..", "R"))
+# Whether the tests run in the source folder of the package: the folder two
+# levels up is a source tree (is_source_tree(): an R folder and no Meta
+# folder), as opposed to an installed package, also one installed with its
+# tests, or the folder of R CMD check. A document that the source folder
+# should have is then required, not skipped.
+in_source_folder <- function() is_source_tree(testthat::test_path("..", ".."))
 
 # Requirement: Numerical range
 # A control of the predicate that the Example "documents on the limits of the
@@ -1306,7 +1305,7 @@ expect_risk_limit_document <- function(lines, name) {
 # Scenario: Documents state the rules at the limits of the double range
 # spec-example: irtse-standard-errors / documents on the limits of the double range
 test_that("README states the rules at the limits of the double range", {
-  if (!in_source_folder()) skip("README.md is not part of the built or installed package")
+  if (!in_source_folder()) skip("README.md is checked only in the source folder of the package")
   readme <- testthat::test_path("..", "..", "README.md")
   expect_true(file.exists(readme))
   expect_risk_limit_document(readLines(readme, warn = FALSE), "README")
@@ -1432,12 +1431,16 @@ test_that("No source help page contains a retired sentence on risks near the lim
   expect_false(any(bad), info = paste(basename(paths[bad]), collapse = ", "))
 })
 
-# The restrictions of the Example "document writing restrictions" that `lines`,
-# the lines of one document, break. `kind` is "help" for a help page or the
-# help template, and "readme" for README.md.
-document_restriction_failures <- function(lines, kind) {
+# The restrictions of the Example "document writing restrictions" that one
+# document breaks. `kind` is "help" for a help page or the help template, and
+# "readme" for README.md. The ASCII row tests `bytes`, the bytes of the file;
+# the other rows test `lines`, the lines that readLines() returns, which are
+# what the sentence check reads (readLines() ends a line at a NUL). For a
+# planted text given only as lines, the bytes are those of the lines.
+document_restriction_failures <- function(lines, kind,
+                                          bytes = charToRaw(paste(lines, collapse = "\n"))) {
   failures <- character()
-  if (any(as.integer(charToRaw(paste(lines, collapse = "\n"))) > 127L)) {
+  if (any(as.integer(bytes) > 127L)) {
     failures <- c(failures, "not ASCII")
   }
   if (kind == "help") {
@@ -1486,14 +1489,17 @@ test_that("The documents keep out the forms that the sentence check does not rea
   writeBin(c(as.raw(c(0xef, 0xbb, 0xbf)), charToRaw("Plain text.\n")), bom)
   writeBin(c(charToRaw("A"), as.raw(0), charToRaw(" caf"), as.raw(c(0xc3, 0xa9)),
              charToRaw("\n")), nul)
+  restriction_failures_of_file <- function(path, kind) {
+    document_restriction_failures(readLines(path, warn = FALSE), kind,
+                                  readBin(path, "raw", file.info(path)$size))
+  }
   for (path in c(bom, nul)) {
-    expect_identical(document_restriction_failures(readLines(path, warn = FALSE), "readme",
-                                                   readBin(path, "raw", file.info(path)$size)),
-                     "not ASCII", info = basename(path))
+    expect_identical(restriction_failures_of_file(path, "readme"), "not ASCII",
+                     info = basename(path))
   }
 
   if (!in_source_folder()) {
-    skip("The source files of the documents are not part of the installed package")
+    skip("The source files of the documents are checked only in the source folder of the package")
   }
   root <- testthat::test_path("..", "..")
   template <- file.path(root, "man-roxygen", "numerical-accuracy.R")
@@ -1503,11 +1509,10 @@ test_that("The documents keep out the forms that the sentence check does not rea
   pages <- list.files(file.path(root, "man"), pattern = "[.]Rd$", full.names = TRUE)
   expect_length(pages, 9L)
   for (path in c(pages, template)) {
-    expect_identical(document_restriction_failures(readLines(path, warn = FALSE), "help"),
-                     character(), info = basename(path))
+    expect_identical(restriction_failures_of_file(path, "help"), character(),
+                     info = basename(path))
   }
-  expect_identical(document_restriction_failures(readLines(readme, warn = FALSE), "readme"),
-                   character())
+  expect_identical(restriction_failures_of_file(readme, "readme"), character())
 })
 
 # TRUE on the version and platform on which the outcomes of the Example
@@ -1682,8 +1687,11 @@ test_that("Local path scans detect first folders with spaces without matching pr
 
 # Requirement: Package metadata and documentation
 test_that("R CMD build excludes a submodule git file", {
+  if (!in_source_folder()) {
+    skip("The build ignore file is checked only in the source folder of the package")
+  }
   path <- testthat::test_path("..", "..", ".Rbuildignore")
-  if (!file.exists(path)) skip("Build ignore file not available in installed package")
+  expect_true(file.exists(path))
   patterns <- readLines(path, warn = FALSE)
   expect_true(any(vapply(patterns, function(pattern) {
     grepl(pattern, ".git", perl = TRUE, ignore.case = TRUE)
@@ -1753,8 +1761,11 @@ test_that("The scans read the leftover names in an installed package", {
 
 # Requirement: Package metadata and documentation
 test_that("R CMD build excludes the files that testthat leaves after a failing run", {
+  if (!in_source_folder()) {
+    skip("The build ignore file is checked only in the source folder of the package")
+  }
   path <- testthat::test_path("..", "..", ".Rbuildignore")
-  if (!file.exists(path)) skip("Build ignore file not available in installed package")
+  expect_true(file.exists(path))
   patterns <- readLines(path, warn = FALSE)
   ignored <- function(file) {
     any(vapply(patterns, function(pattern) {

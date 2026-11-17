@@ -49,14 +49,16 @@ relative_to_root <- function(paths, root) {
 # tests/testthat/_problems after a failing run. They hold the output of the
 # failures, which can name paths of the machine the tests ran on, and the next
 # run would report them; they are not package files, .Rbuildignore keeps them
-# out of the built package, and the scans skip them. Only the two at the root
-# of the tree are skipped, so `root` is required for it: a file of the same name
-# in a folder that would ship (inst/tests/testthat, say) is still read.
+# out of the built package, and the scans skip them. Only in a source tree
+# (`installed = FALSE`), and only the two at the root of that tree, are they
+# skipped, so `root` is required for it: a file of the same name in a folder
+# that ships (inst/tests/testthat, say) is read, also in the installed
+# package, where that folder is installed as tests/testthat.
 scannable_files <- function(paths, installed = TRUE, root = NULL) {
   inside <- if (is.null(root)) paths else relative_to_root(paths, root)
   serialized <- installed & grepl("[.](rdb|rdx|rds)$", inside, ignore.case = TRUE)
   version_control <- grepl("(^|/)[.]git(/|$)", inside)
-  leftover <- !is.null(root) &
+  leftover <- !is.null(root) & !installed &
     grepl("^tests/testthat/(testthat-problems[.]rds$|_problems(/|$))", inside)
   paths[!serialized & !version_control & !leftover]
 }
@@ -83,12 +85,19 @@ tree_files <- function(root) {
   list.files(root, recursive = TRUE, full.names = TRUE, all.files = TRUE)
 }
 
+# Whether `root` is the source folder of a package: it has an R folder and,
+# unlike an installed package, which also has one, no Meta folder. The folder
+# in which R CMD check runs the tests has neither.
+is_source_tree <- function(root) {
+  dir.exists(file.path(root, "R")) && !dir.exists(file.path(root, "Meta"))
+}
+
 # The files read by the scan of the shipped package: every file of the
 # installed (or loaded) package at `package_root` and, when `source_root` is a
-# source tree (it has an R folder), the files of that folder.
+# source tree (is_source_tree()), the files of its R folder.
 shipped_scan_files <- function(package_root, source_root) {
   source_r <- file.path(source_root, "R")
-  in_source <- dir.exists(source_r)
+  in_source <- is_source_tree(source_root)
   paths <- scannable_files(tree_files(package_root), installed = !in_source,
                            root = package_root)
   # The plain listing of the R folder has no hidden entry and nothing below a
@@ -98,10 +107,10 @@ shipped_scan_files <- function(package_root, source_root) {
 }
 
 # The files read by the scan of the source tree at `source_root`. Where there
-# is no source tree, they are the files of the installed package at
-# `package_root`.
+# is no source tree (is_source_tree()), they are the files of the installed
+# package at `package_root`.
 source_scan_files <- function(package_root, source_root) {
-  if (!dir.exists(file.path(source_root, "R"))) {
+  if (!is_source_tree(source_root)) {
     return(scannable_files(tree_files(package_root), installed = TRUE,
                            root = package_root))
   }
