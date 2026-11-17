@@ -8,8 +8,8 @@ Unreleased development version.
   `se_boot(rep(1, J), seq(-2, 2, length.out = J), 0, "MLE")` the peak of the R
   heap (`gc()`, "max used") was 178 MB at J = 750 and 420 MB at J = 1500
   before, and is 178, 254 and 261 MB at J = 750, 1500 and 3000 now; the peak
-  resident memory at J = 3000 fell from 5.2 GB to 1.4 GB. The running time is
-  not addressed here; it is followed in PsychQuant/IRT-theories issue 25.
+  resident memory at J = 3000 fell from 5.2 GB to 1.4 GB. This change does not
+  address the running time.
 
 * A lattice design whose number of attainable totals is certainly above the
   atom limit, because J positive integer weights give at least J + 1 of them
