@@ -156,17 +156,17 @@ remain subject to the following numerical limits.
   A nonzero `diff` whose logarithm of the absolute value, computed in the same
   way, is below `log(2^-1074)` stops the call with `representable` and the field
   name.
+  For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
+  representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
+  because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
+  causes this error, though it cannot arise at the supplied ability within
+  the supported range, where logits have absolute value at most 2e6.
   In the fifth case, the term of an item is formed from its cumulant
   polynomial (`1 - 6u` for `k4`, `1 - 12u` for `k5`, and so on), and that
   polynomial can be computed as exactly 0 where its value is not. With R 4.6.1
   on aarch64 macOS, `design_cumulants(1, 0, acosh(2))` returns `k4` = 0 and
   `design_cumulants(1, 0, 2.2924316695611773)` returns `k5` = 0, although their
   values at the computed logits are about -1.3e-17 and 2.3e-17.
-  For example, `delta2(1, 0, 300, "MLE")` stops because the coefficient is not
-  representable. `delta2(1, 0, 2^-1074, "MLE")` also stops with "representable"
-  because `tanh(eta / 2)` is zero for a nonzero logit. A non-finite logit also
-  causes this error, though it cannot arise at the supplied ability within
-  the supported range, where logits have absolute value at most 2e6.
 - Discriminations are identified with a commensurable design when multiplying
   their ratios to the smallest discrimination by an integer from 1 to 1000
   puts them within eight relative machine epsilons of integers. This includes
