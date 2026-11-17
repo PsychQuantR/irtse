@@ -29,9 +29,19 @@ test_that("The estimating equation in blocks gives the same doubles and the same
     error_order = function() {
       irtse:::estimate_equation(c(1e-308, 1e-308), c(1.5e308, 1.5e308), c(0, 0), "MLE",
                                 c(1.7e308, 0))
+    },
+    # The check of the logits runs inside each block. The first row passes it and
+    # fails only the value check; the logit of the second row is not finite. At once
+    # the logits are checked first, so the error names a logit; a block of one row
+    # reaches the second row's logit before any deferred check runs and must name
+    # a logit as well.
+    logit_after_value = function() {
+      irtse:::estimate_equation(c(1e-308, 2), c(1.5e308, 1.5e308), c(0, 0), "MLE", c(0, 0))
     }
   )
   expect_match(outcome_of(calls$error_order), "estimating equation is not representable",
+               fixed = TRUE)
+  expect_match(outcome_of(calls$logit_after_value), "a logit is not representable",
                fixed = TRUE)
   for (name in names(calls)) {
     reference <- outcome_of(calls[[name]])
