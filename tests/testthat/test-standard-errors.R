@@ -910,27 +910,81 @@ test_that("Selection identifies only its law-based bootstrap report", {
   expect_identical(selected$delta3, delta3(a, b, 0.3, "MLE"))
 })
 
+# Local definitions from the specification, apart from the package: kappa_r and
+# k_r of the requirement "Design cumulants", and the formula of the requirement
+# "Third-order coefficient".
+spec_logistic <- function(eta) {
+  ifelse(eta < 0, exp(eta) / (1 + exp(eta)), 1 / (1 + exp(-eta)))
+}
+spec_cumulants <- function(a, b, theta) {
+  P <- spec_logistic(a * (theta - b))
+  u <- P * (1 - P)
+  kappa <- list(u, u * (1 - 2 * P), u * (1 - 6 * u),
+                u * (1 - 2 * P) * (1 - 12 * u), u * (1 - 30 * u + 120 * u^2),
+                u * (1 - 2 * P) * (1 - 60 * u + 360 * u^2))
+  stats::setNames(vapply(2:7, function(r) mean(a^r * kappa[[r - 1L]]),
+                         numeric(1)), paste0("k", 2:7))
+}
+spec_third_order <- function(k) {
+  k2 <- k[["k2"]]; k3 <- k[["k3"]]; k4 <- k[["k4"]]
+  k5 <- k[["k5"]]; k6 <- k[["k6"]]; k7 <- k[["k7"]]
+  R3 <- 288 * k2^4 * k3 * k7 + 288 * k2^4 * k4 * k6 + 384 * k2^4 * k5^2 -
+    5152 * k2^3 * k3^2 * k6 - 16928 * k2^3 * k3 * k4 * k5 -
+    2120 * k2^3 * k4^3 + 49552 * k2^2 * k3^3 * k5 +
+    93388 * k2^2 * k3^2 * k4^2 - 279274 * k2 * k3^4 * k4 + 169263 * k3^6
+  -R3 / (768 * k2^10)
+}
+
+# exp(-730) / 2, the value that the first row of the Example "errors from
+# intermediate values" names, as a multiple of 2^-1074 (computed with 80
+# significant digits; the nearest double is 933713 multiples).
+k3_intermediate_multiple <- 933713.328055
+
+# Whether a value that a call of that Example returned conforms to the Scenario
+# "Errors from intermediate values": finite, not 0, and within relative 1e-8 of
+# the stated value, or, where the stated value is a subnormal number (given as
+# its multiple of 2^-1074), within two multiples of 2^-1074 of it.
+intermediate_value_conforms <- function(value, stated, subnormal = FALSE) {
+  if (!(length(value) == 1L && is.finite(value) && value != 0)) return(FALSE)
+  if (subnormal) abs(value / 2^-1074 - stated) <= 2 else abs(value / stated - 1) < 1e-8
+}
+
 # Requirement: Numerical range
+# Scenario: Errors from intermediate values
 # spec-example: irtse-standard-errors / errors from intermediate values
 test_that("Errors from intermediate values may stop an otherwise representable result", {
+  k <- spec_cumulants(c(1, 1000), c(730, 0), 0)
   cases <- list(
     list(call = function() {
       risk_diff(rep(0.7092, 3), c(-1000, 1000, 1000), 1000, "MLE")$smse_info
-    }, expected = exp(709.2) / (2 * sqrt(2) * 0.7092^2)),
+    }, stated = exp(709.2) / (2 * sqrt(2) * 0.7092^2), subnormal = FALSE,
+    reason = "smse_info"),
     list(call = function() design_cumulants(c(1, 1000), c(730, 0), 0)[["k3"]],
-         expected = exp(-730) / 2),
+         stated = k3_intermediate_multiple, subnormal = TRUE, reason = "cumulant ratio"),
     list(call = function() delta3(c(1, 1000), c(730, 0), 0, "MLE"),
-         expected = -1936 / 3e6)
+         stated = spec_third_order(k), subnormal = FALSE, reason = "cumulant ratio")
   )
   for (case in cases) {
     value <- tryCatch(case$call(), error = identity)
     if (inherits(value, "error")) {
       expect_match(conditionMessage(value), "representable", fixed = TRUE)
+      expect_match(conditionMessage(value), case$reason, fixed = TRUE)
     } else {
-      expect_true(length(value) == 1L && is.finite(value) && value != 0)
-      expect_lt(abs(value / case$expected - 1), 1e-8)
+      expect_true(intermediate_value_conforms(value, case$stated, case$subnormal))
     }
   }
+  # Where the package stops on these calls, the comparison above does not run;
+  # it is shown here on planted values. It accepts the double nearest to
+  # exp(-730) / 2 and rejects one three multiples of 2^-1074 away and 0; it
+  # accepts a Delta_3 a relative 1e-9 off and rejects one 1e-7 off.
+  expect_true(intermediate_value_conforms(933713 * 2^-1074, k3_intermediate_multiple, TRUE))
+  expect_false(intermediate_value_conforms(933716 * 2^-1074, k3_intermediate_multiple, TRUE))
+  expect_false(intermediate_value_conforms(0, k3_intermediate_multiple, TRUE))
+  d3 <- spec_third_order(k)
+  expect_true(intermediate_value_conforms(d3 * (1 + 1e-9), d3))
+  expect_false(intermediate_value_conforms(d3 * (1 + 1e-7), d3))
+  # The definitions give the stated k3 within the same two multiples.
+  expect_lte(abs(k[["k3"]] / 2^-1074 - k3_intermediate_multiple), 2)
 })
 
 # Requirement: Numerical range
@@ -939,34 +993,20 @@ test_that("Errors from intermediate values may stop an otherwise representable r
 # marker; the marked test is the one above.
 test_that("The values named for the calls that stop on an intermediate follow from the definitions", {
   # Where the package stops on both calls of the Example (as it does at the
-  # commit that added this test, on R 4.6.1, aarch64 macOS), the test above
-  # never compares the column "Value that would be returned". Here each named
-  # value is computed apart from the package, from the definitions the
-  # specification gives: kappa_r and k_r of the requirement "Design
-  # cumulants", and the formula of the requirement "Third-order coefficient".
-  logistic <- function(eta) {
-    ifelse(eta < 0, exp(eta) / (1 + exp(eta)), 1 / (1 + exp(-eta)))
-  }
-  cumulants <- function(a, b, theta) {
-    P <- logistic(a * (theta - b))
-    u <- P * (1 - P)
-    kappa <- list(u, u * (1 - 2 * P), u * (1 - 6 * u),
-                  u * (1 - 2 * P) * (1 - 12 * u), u * (1 - 30 * u + 120 * u^2),
-                  u * (1 - 2 * P) * (1 - 60 * u + 360 * u^2))
-    stats::setNames(vapply(2:7, function(r) mean(a^r * kappa[[r - 1L]]),
-                           numeric(1)), paste0("k", 2:7))
-  }
-  third_order <- function(k) {
-    k2 <- k[["k2"]]; k3 <- k[["k3"]]; k4 <- k[["k4"]]
-    k5 <- k[["k5"]]; k6 <- k[["k6"]]; k7 <- k[["k7"]]
-    R3 <- 288 * k2^4 * k3 * k7 + 288 * k2^4 * k4 * k6 + 384 * k2^4 * k5^2 -
-      5152 * k2^3 * k3^2 * k6 - 16928 * k2^3 * k3 * k4 * k5 -
-      2120 * k2^3 * k4^3 + 49552 * k2^2 * k3^3 * k5 +
-      93388 * k2^2 * k3^2 * k4^2 - 279274 * k2 * k3^4 * k4 + 169263 * k3^6
-    -R3 / (768 * k2^10)
-  }
-  # The local formula is checked first on two rows of the Example "Delta_3
+  # commit that added this test, on R 4.6.1, aarch64 macOS), the marked test
+  # above has no returned value to compare. Here each named value is computed
+  # apart from the package, from the definitions spec_cumulants() and
+  # spec_third_order() above.
+  cumulants <- spec_cumulants
+  third_order <- spec_third_order
+  # The local definitions are checked first: against design_cumulants() on
+  # three items whose discriminations are not 1 and whose probabilities at
+  # theta are not 1/2 (0.63, 0.55 and 0.17), so that every power of a and every
+  # odd cumulant enters; then the formula on two rows of the Example "Delta_3
   # table", against the exact values of the table and against delta3().
+  a <- c(0.7, 1.3, 2.1)
+  b <- c(-0.4, 0.2, 1.1)
+  expect_lt(max(abs(cumulants(a, b, 0.35) / design_cumulants(a, b, 0.35) - 1)), 1e-12)
   rows <- list(
     list(a = c(1, 1), b = c(log(5), -log(5)), theta = 0, exact = 110889 / 625),
     list(a = 1, b = 0, theta = stats::qlogis(3 / 10),
@@ -998,10 +1038,43 @@ test_that("The values named for the calls that stop on an intermediate follow fr
   expect_lt(abs(third_order(k) / (-1936 / 3e6) - 1), 1e-12)
 })
 
+# Whether `out`, a returned scaled risk or the error of the call, is a finite
+# risk that is not negative or an error naming `field` as not representable.
+finite_risk_or_stop <- function(out, field) {
+  if (inherits(out, "error")) {
+    message <- conditionMessage(out)
+    return(grepl("representable", message, fixed = TRUE) &&
+             grepl(field, message, fixed = TRUE))
+  }
+  length(out) == 1L && is.finite(out) && out >= 0
+}
+
 # Requirement: Numerical range
+# Scenario: A risk whose reports agree with the target
 test_that("A risk whose reports agree with the target may round to zero", {
   value <- risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot
   expect_true(is.finite(value) && value >= 0 && value < 1e-100)
+  # The ability one double above -r: the exact risk for the supplied numbers is
+  # 7.9e3 multiples of 2^-1074, and the reports and the target can still be
+  # computed as the same double.
+  r <- 0.6761242835860889
+  out <- tryCatch(risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-53,
+                            "MLE")$smse_boot, error = identity)
+  expect_true(finite_risk_or_stop(out, "smse_boot"))
+  expect_false(finite_risk_or_stop(-2^-1074, "smse_boot"))
+  expect_false(finite_risk_or_stop(Inf, "smse_boot"))
+  expect_false(finite_risk_or_stop(simpleError("scaled risk smse_info is not representable"),
+                                   "smse_boot"))
+})
+
+# Requirement: Numerical range
+# Scenario: A design average whose item polynomial is computed as 0
+test_that("An item polynomial computed as zero gives zero or a value below 1e-15", {
+  zero_or_tiny <- function(x) length(x) == 1L && is.finite(x) && abs(x) < 1e-15
+  expect_true(zero_or_tiny(design_cumulants(1, 0, acosh(2))[["k4"]]))
+  expect_true(zero_or_tiny(design_cumulants(1, 0, 2.2924316695611773)[["k5"]]))
+  expect_false(zero_or_tiny(2e-15))
+  expect_false(zero_or_tiny(NaN))
 })
 
 # Requirement: Numerical range
@@ -1041,20 +1114,28 @@ test_that("README and help retain both item-level accuracy qualifications", {
   }
 })
 
+# The text of a document after markup is removed, as the Example "documents on
+# the limits of the double range" describes. White space is the six ASCII
+# white-space characters, named one by one so that the reading does not depend
+# on the locale. A code span is replaced in one pass, so in a code span inside
+# another only the inner one is replaced. A known limit: a review of issue 16
+# found that a single code span of about five million characters exceeds the
+# matching limit of the regular-expression engine, so that span is not read;
+# the documents of the package have fewer than 15,000 characters each.
 normalise_document_text <- function(text) {
   text <- paste(text, collapse = " ")
   text <- gsub("(?s)\\\\code\\{((?:[^{}\\\\]|\\\\.)*?)\\}", "\\1", text, perl = TRUE)
   text <- gsub("\\\\([%{}^])", "\\1", text, perl = TRUE)
   text <- gsub("`", "", text, fixed = TRUE)
-  gsub("[[:space:]]+", " ", text)
+  gsub("[ \t\n\v\f\r]+", " ", text)
 }
 
 # A sentence of a document, checked as fixed text: the text from its first word
 # to its full stop has to stand at the start of the document text or directly
 # after a full stop and a space. This is a check of text, not of meaning: the
-# same text after an abbreviation that ends in a full stop and a space, inside
-# a comment of the document, or with more text directly after its full stop
-# also matches.
+# same text matches after any full stop and a space (an abbreviation, a
+# numbered item, a sentence that negates it, a comment line of a help page read
+# from its source file) and with more text directly after its full stop.
 has_document_sentence <- function(text, sentence) {
   at <- gregexpr(sentence, text, fixed = TRUE)[[1]]
   if (at[1] < 0) return(FALSE)
@@ -1109,22 +1190,24 @@ risk_limit_sentences <- c(
   call_stopped = paste0(
     "In risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, \"MLE\") with r ",
     "set to 0.685794632511088 the report and the target agree to a relative ",
-    "1.1e-13, the exact smse_boot is 2.05 times 2^-1074, which is ",
-    "representable, and the call stopped."),
+    "1.1e-13, the exact smse_boot for the supplied numbers is 2.05 times ",
+    "2^-1074, which is representable, and the call stopped."),
   call_returned = paste0(
     "With r set to 0.6907256300571373 and the ability -r + 2^-49 the exact ",
-    "value is 0.96 times 2^-1074, which is below the smallest positive double, ",
-    "and the call returned 2^-1074."),
+    "value for the supplied numbers is 0.96 times 2^-1074, which is below the ",
+    "smallest positive double, and the call returned 2^-1074."),
   upper = paste0(
     "At the largest double, in risk_diff(rep(512, 2), c(-B, B), 0, \"MLE\") with ",
-    "B set to 1042 * log(2) / 512 the exact smse_info is above the largest ",
-    "double by a relative 9.9e-15 and the call returned 1.7976931348622732e308."),
+    "B set to 1.4106628166864512, the double that R gives for 1042 * log(2) / ",
+    "512, the exact smse_info is above the largest double by a relative ",
+    "9.9e-15 and the call returned 1.7976931348622732e308."),
   no_claim = paste0(
     "In general the package does not claim that the outcome agrees with the ",
     "side of either limit on which the exact risk lies."),
   platform = paste0(
-    "The outcomes of the calls named here were measured with R 4.6.1 on aarch64",
-    " macOS and can differ on another platform."),
+    "The outcomes stated for the calls at the abilities -0.72 + 5e-9, -r + ",
+    "2^-52 and -r + 2^-49 and for the call with B were measured with R 4.6.1 ",
+    "on aarch64 macOS and can differ on another platform."),
   zero_diff = paste0(
     "A diff of 0 means the two risks are not distinguished in double precision,",
     " not that they are equal."),
@@ -1151,45 +1234,67 @@ retired_risk_sentences <- c(
   "This is not confined to risks close to those limits",
   "Beyond the calls named in the specification",
   "a value above the largest double stops the call",
-  "1.6 such spacings")
+  "1.6 such spacings",
+  "the exact smse_boot is 2.05 times 2^-1074",
+  "the exact value is 0.96 times 2^-1074",
+  "with B set to 1042 * log(2) / 512 the exact",
+  "The outcomes of the calls named here")
+
+# The exported functions whose help pages carry the template of the numerical
+# limits.
+template_pages <- c("se_info", "se_boot", "design_cumulants", "delta2", "delta3",
+                    "risk_diff", "se_diagnostic", "se_select")
+
+# A help page as text: its source file where the source folder is present, or,
+# in an installed package, the page from the Rd database `db`. The pieces of
+# the database are joined without a separator; a space between them would
+# stand between a code span and the comma, semicolon or bracket next to it.
+help_page_text <- function(name, db) {
+  rd_path <- testthat::test_path("..", "..", "man", paste0(name, ".Rd"))
+  if (file.exists(rd_path)) return(readLines(rd_path, warn = FALSE))
+  paste(as.character(db[[paste0(name, ".Rd")]]), collapse = "")
+}
+
+# The rows of the Example "documents on the limits of the double range" for one
+# document, given as its lines.
+expect_risk_limit_document <- function(lines, name) {
+  text <- gsub("[ \t\n\v\f\r]+", " ", paste(lines, collapse = " "))
+  expect_match(text, "diff[^.]*not distinguished[^.]*double precision", info = name)
+  text <- normalise_document_text(lines)
+  for (sentence in names(risk_limit_sentences)) {
+    expect_true(has_document_sentence(text, risk_limit_sentences[[sentence]]),
+                info = paste(name, sentence))
+  }
+  expect_match(text, risk_log_rounding_clause, fixed = TRUE, info = name)
+  expect_match(text, paste0("rounding the result to a subnormal double can give ",
+                            "a much larger relative error"), fixed = TRUE, info = name)
+  expect_match(text, "A returned risk in the subnormal range is a multiple of 2^-1074",
+               fixed = TRUE, info = name)
+  for (retired in retired_risk_sentences) {
+    expect_false(grepl(retired, text, fixed = TRUE), info = paste(name, retired))
+  }
+}
 
 # Requirement: Numerical range
-# Scenario: Documents state what a risk difference of 0 means
+# Scenario: Documents state the rules at the limits of the double range
 # spec-example: irtse-standard-errors / documents on the limits of the double range
-test_that("README and risk help explain a zero diff as not distinguished", {
-  texts <- list()
+test_that("README states the rules at the limits of the double range", {
   readme <- testthat::test_path("..", "..", "README.md")
-  if (file.exists(readme)) texts$README <- readLines(readme, warn = FALSE)
-  rd_path <- testthat::test_path("..", "..", "man", "risk_diff.Rd")
-  # In an installed package the page is read from the Rd database. Its pieces
-  # are joined without a separator, which gives the text of the source file; a
-  # space between the pieces would stand between a code span and the comma,
-  # semicolon or bracket next to it.
-  texts$risk_diff <- if (file.exists(rd_path)) readLines(rd_path, warn = FALSE) else {
-    paste(as.character(tools::Rd_db("irtse")[["risk_diff.Rd"]]), collapse = "")
-  }
-  for (name in names(texts)) {
-    text <- gsub("\\s+", " ", paste(texts[[name]], collapse = " "))
-    expect_match(text, "diff[^.]*not distinguished[^.]*double precision",
-                 info = name)
-    text <- normalise_document_text(texts[[name]])
-    for (sentence in names(risk_limit_sentences)) {
-      expect_true(has_document_sentence(text, risk_limit_sentences[[sentence]]),
-                  info = paste(name, sentence))
-    }
-    expect_match(text, risk_log_rounding_clause, fixed = TRUE, info = name)
-    expect_match(text, paste0("rounding the result to a subnormal double can give ",
-                              "a much larger relative error"), fixed = TRUE, info = name)
-    expect_match(text, "A returned risk in the subnormal range is a multiple of 2^-1074",
-                 fixed = TRUE, info = name)
-    for (retired in retired_risk_sentences) {
-      expect_false(grepl(retired, text, fixed = TRUE), info = paste(name, retired))
-    }
-  }
+  if (!file.exists(readme)) skip("README.md is not part of the built or installed package")
+  expect_risk_limit_document(readLines(readme, warn = FALSE), "README")
 })
 
 # Requirement: Numerical range
-# Scenario: Documents state what a risk difference of 0 means
+# Scenario: Documents state the rules at the limits of the double range
+# spec-example: irtse-standard-errors / documents on the limits of the double range
+test_that("The eight help pages state the rules at the limits of the double range", {
+  source_pages <- dir.exists(testthat::test_path("..", "..", "man"))
+  db <- if (source_pages) NULL else tools::Rd_db("irtse")
+  for (name in template_pages) expect_risk_limit_document(help_page_text(name, db), name)
+})
+
+# Requirement: Numerical range
+# Scenario: Documents state the rules at the limits of the double range
 test_that("The document sentence check compares fixed text from first word to full stop and reads through markup", {
   wanted <- risk_limit_sentences[["follow"]]
   rd <- paste0(
@@ -1208,11 +1313,37 @@ test_that("The document sentence check compares fixed text from first word to fu
   expect_false(check(sub("2^-1074", "12^-1074", rd, fixed = TRUE)))
 
   # What a check of fixed text does not see, as the Example states it: the
-  # sentence after an abbreviation that ends in a full stop and a space, inside
-  # a comment of the document, and with more text directly after its full stop.
+  # sentence after any full stop and a space (an abbreviation, a numbered item,
+  # a sentence that negates it, text in which the full stop and the space meet
+  # only once backticks are dropped, a comment line of a help page read from
+  # its source file), and with more text directly after its full stop. An HTML
+  # comment, which the Example "document writing restrictions" keeps out of
+  # README.md, is read the same way.
   expect_true(check(paste("This is false, e.g.", rd)))
+  expect_true(check(paste("1.", rd)))
+  expect_true(check(paste("None of this holds.", rd)))
+  expect_true(check(paste0("Retracted.` `", rd)))
+  expect_true(check(c("% An earlier text.", rd)))
   expect_true(check(paste0("<!-- An earlier text. ", markdown, " -->")))
   expect_true(check(sub("largest double.", "largest double.5 only", rd, fixed = TRUE)))
+
+  # White space is the six ASCII white-space characters, whatever the locale:
+  # any of them between two words reads as one space, and no other character
+  # does, so a sentence written with a no-break, thin or ideographic space is
+  # not found.
+  spaced <- function(ch) sub("the log weights", paste0("the", ch, "log weights"), rd,
+                             fixed = TRUE)
+  for (ch in c("\t", "\n", "\v", "\f", "\r", "  ")) {
+    expect_true(check(spaced(ch)), info = sprintf("U+%04X", utf8ToInt(substr(ch, 1, 1))))
+  }
+  for (ch in c(" ", " ", "　")) {
+    expect_false(check(spaced(ch)), info = sprintf("U+%04X", utf8ToInt(ch)))
+  }
+
+  # A code span is replaced in one pass: in a code span inside another only the
+  # inner one is replaced and the outer markup stays in the text.
+  expect_identical(normalise_document_text("A \\code{\\code{2^-1074}} B"),
+                   "A \\code{2^-1074} B")
 
   # A code span is replaced by its content as it stands: white space inside the
   # braces is kept on both sides, so a space that splits a word, or that
@@ -1233,9 +1364,17 @@ test_that("The document sentence check compares fixed text from first word to fu
     "A positive risk below 2^-1074 stops the call",
     normalise_document_text("A positive risk below\\code{ 2^-1074 stops the call\\\n} is here."),
     fixed = TRUE))
+  # The same span given as two lines of a source file, as readLines() returns
+  # them.
+  expect_true(grepl(
+    "A positive risk below 2^-1074 stops the call",
+    normalise_document_text(c("A positive risk below\\code{ 2^-1074 stops the call\\",
+                              "} is here.")),
+    fixed = TRUE))
   # With white space between the macro and its brace R reads no code span and
-  # reports the page; with a space or a tab on the same line it also drops the
-  # rest of the section. The text stays as written and completes no sentence.
+  # reports the page; when a space or a tab stands directly in front of the
+  # brace it also drops the rest of the section. The text stays as written and
+  # completes no sentence.
   expect_false(check(sub("\\code{2^-1074}", "\\code {2^-1074}", rd, fixed = TRUE)))
 
   clause <- function(raw) {
@@ -1252,7 +1391,7 @@ test_that("The document sentence check compares fixed text from first word to fu
 })
 
 # Requirement: Numerical range
-# Scenario: Documents state what a risk difference of 0 means
+# Scenario: Documents state the rules at the limits of the double range
 test_that("No source help page contains a retired sentence on risks near the limits", {
   man <- testthat::test_path("..", "..", "man")
   if (!dir.exists(man)) skip("Source help pages not available in installed package")
@@ -1264,6 +1403,114 @@ test_that("No source help page contains a retired sentence on risks near the lim
     }, logical(1)))
   }, logical(1))
   expect_false(any(bad), info = paste(basename(paths[bad]), collapse = ", "))
+})
+
+# The restrictions of the Example "document writing restrictions" that `lines`,
+# the lines of one document, break. `kind` is "help" for a help page or the
+# help template, and "readme" for README.md.
+document_restriction_failures <- function(lines, kind) {
+  failures <- character()
+  if (any(as.integer(charToRaw(paste(lines, collapse = "\n"))) > 127L)) {
+    failures <- c(failures, "not ASCII")
+  }
+  if (kind == "help") {
+    if (any(grepl("\\\\[\\\\{}]", lines, perl = TRUE))) {
+      failures <- c(failures, "backslash before a backslash or a brace")
+    }
+    if (any(grepl("\\\\$", lines, perl = TRUE))) {
+      failures <- c(failures, "backslash at the end of a line")
+    }
+    if (any(grepl("\\\\code(?!\\{)", lines, perl = TRUE))) {
+      failures <- c(failures, "code macro not followed by a brace")
+    }
+  } else {
+    if (any(grepl("<!--", lines, fixed = TRUE))) failures <- c(failures, "HTML comment")
+    if (any(grepl("~~", lines, fixed = TRUE))) failures <- c(failures, "strikethrough")
+  }
+  failures
+}
+
+# Requirement: Numerical range
+# Scenario: Documents are written in the form that the sentence check reads
+# spec-example: irtse-standard-errors / document writing restrictions
+test_that("The documents keep out the forms that the sentence check does not read as R does", {
+  # Each restriction reports a planted text that breaks it, and only that one.
+  expect_identical(document_restriction_failures("caf\u00e9", "readme"), "not ASCII")
+  expect_identical(document_restriction_failures("caf\u00e9", "help"), "not ASCII")
+  for (text in c("a \\\\ b", "a \\{ b", "a \\} b")) {
+    expect_identical(document_restriction_failures(text, "help"),
+                     "backslash before a backslash or a brace", info = text)
+  }
+  expect_identical(document_restriction_failures(c("a b\\", "c"), "help"),
+                   "backslash at the end of a line")
+  for (text in c("\\code {x}", "\\code", "\\code\tx")) {
+    expect_identical(document_restriction_failures(text, "help"),
+                     "code macro not followed by a brace", info = text)
+  }
+  expect_identical(document_restriction_failures("<!-- a -->", "readme"), "HTML comment")
+  expect_identical(document_restriction_failures("~~a~~", "readme"), "strikethrough")
+  expect_identical(document_restriction_failures("\\code{x} and `y`, 50\\%.", "help"),
+                   character())
+
+  root <- testthat::test_path("..", "..")
+  template <- file.path(root, "man-roxygen", "numerical-accuracy.R")
+  if (!file.exists(template)) {
+    skip("The source files of the documents are not part of the installed package")
+  }
+  pages <- list.files(file.path(root, "man"), pattern = "[.]Rd$", full.names = TRUE)
+  expect_length(pages, 9L)
+  for (path in c(pages, template)) {
+    expect_identical(document_restriction_failures(readLines(path, warn = FALSE), "help"),
+                     character(), info = basename(path))
+  }
+  readme <- file.path(root, "README.md")
+  expect_identical(document_restriction_failures(readLines(readme, warn = FALSE), "readme"),
+                   character())
+})
+
+# TRUE on the version and platform on which the outcomes of the Example
+# "documented outcomes" were measured.
+documented_platform <- function(major = R.version$major, minor = R.version$minor,
+                                arch = R.version$arch,
+                                sysname = Sys.info()[["sysname"]]) {
+  identical(c(major, minor, arch, sysname), c("4", "6.1", "aarch64", "Darwin"))
+}
+
+# Requirement: Numerical range
+# Scenario: The documented outcomes on the platform they were measured on
+# spec-example: irtse-standard-errors / documented outcomes
+test_that("The documented outcomes hold with R 4.6.1 on aarch64 macOS", {
+  expect_true(documented_platform("4", "6.1", "aarch64", "Darwin"))
+  expect_false(documented_platform("5", "6.1", "aarch64", "Darwin"))
+  expect_false(documented_platform("4", "6.2", "aarch64", "Darwin"))
+  expect_false(documented_platform("4", "6.1", "x86_64", "Darwin"))
+  expect_false(documented_platform("4", "6.1", "aarch64", "Linux"))
+  if (!documented_platform()) {
+    skip("The documented outcomes were measured with R 4.6.1 on aarch64 macOS")
+  }
+  q <- 2^-1074
+  expect_identical(risk_diff(rep(1000, 3), c(-1.44, 0, 1.44), -0.72 + 5e-9,
+                             "MLE")$smse_boot, 2 * q)
+  r <- 0.685794632511088
+  stopped <- tryCatch(risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-52, "MLE"),
+                      error = identity)
+  expect_s3_class(stopped, "error")
+  expect_match(conditionMessage(stopped), "representable", fixed = TRUE)
+  expect_match(conditionMessage(stopped), "smse_boot", fixed = TRUE)
+  r <- 0.6907256300571373
+  expect_identical(risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-49,
+                             "MLE")$smse_boot, q)
+  # 1.7976931348622732e308 to 17 significant digits, written in hexadecimal:
+  # R does not round every decimal literal correctly, and reads that one as a
+  # double six spacings higher.
+  B <- 1042 * log(2) / 512
+  expect_identical(risk_diff(rep(512, 2), c(-B, B), 0, "MLE")$smse_info,
+                   0x1.fffffffffff2ap+1023)
+  r <- 0.6761242835860889
+  expect_identical(risk_diff(rep(1000, 3), c(-2 * r, 0, 2 * r), -r + 2^-53,
+                             "MLE")$smse_boot, 0)
+  expect_identical(design_cumulants(1, 0, acosh(2))[["k4"]], 0)
+  expect_identical(design_cumulants(1, 0, 2.2924316695611773)[["k5"]], 0)
 })
 
 # Requirement: Numerical range
@@ -1399,4 +1646,70 @@ test_that("R CMD build excludes a submodule git file", {
   expect_true(any(vapply(patterns, function(pattern) {
     grepl(pattern, ".git", perl = TRUE, ignore.case = TRUE)
   }, logical(1))))
+})
+
+# Requirement: Package metadata and documentation
+# A control of the two scans themselves; the specification has no Scenario of
+# this name.
+test_that("The scans skip the files that testthat leaves after a failing run", {
+  base <- tempfile("irtse-leftover-")
+  on.exit(unlink(base, recursive = TRUE), add = TRUE)
+  put <- function(relative, text) {
+    path <- file.path(base, relative)
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+    writeLines(text, path)
+  }
+  local_path <- paste0("/", "Users", "/", "someone", "/", "notes.txt")
+  put("DESCRIPTION", "Package: control")
+  put("README.md", "A control tree.")
+  put("NEWS.md", "No news.")
+  put(file.path("R", "code.R"), "f <- function() 1")
+  put(file.path("tests", "testthat", "testthat-problems.rds"), local_path)
+  put(file.path("tests", "testthat", "_problems", "test-f.R"), local_path)
+  put(file.path("tests", "testthat", "test-f.R"), paste("# see", local_path))
+  planted <- file.path(base, "tests", "testthat", "test-f.R")
+  expect_identical(files_matching(shipped_scan_files(base, base), shipped_scan_patterns()),
+                   planted)
+  expect_identical(files_matching(source_scan_files(base, base), source_scan_patterns()),
+                   planted)
+})
+
+# Requirement: Package metadata and documentation
+test_that("R CMD build excludes the files that testthat leaves after a failing run", {
+  path <- testthat::test_path("..", "..", ".Rbuildignore")
+  if (!file.exists(path)) skip("Build ignore file not available in installed package")
+  patterns <- readLines(path, warn = FALSE)
+  ignored <- function(file) {
+    any(vapply(patterns, function(pattern) {
+      grepl(pattern, file, perl = TRUE, ignore.case = TRUE)
+    }, logical(1)))
+  }
+  expect_true(ignored("tests/testthat/_problems"))
+  expect_true(ignored("tests/testthat/testthat-problems.rds"))
+  expect_false(ignored("tests/testthat/test-standard-errors.R"))
+  expect_false(ignored("tests/testthat/helper-local-paths.R"))
+})
+
+# Requirement: Package metadata and documentation
+# The forms that the comment of the path patterns lists as not found; the
+# specification has no Scenario of this name.
+test_that("Path forms that the scan does not find", {
+  matches <- function(text) {
+    any(vapply(additional_local_path_patterns(), function(pattern) {
+      length(grepRaw(pattern, charToRaw(text))) > 0L
+    }, logical(1)))
+  }
+  s <- "/"
+  not_found <- c(
+    file_url = paste0("file:", s, s, s, "Users", s, "someone", s, "notes.txt"),
+    include_flag = paste0("-I", s, "usr", s, "include"),
+    library_flag = paste0("-L", s, "opt", s, "lib"),
+    path_entry = paste0("bin:", s, "opt", s, "tools", s, "bin"),
+    home_one = paste0("~", s, "notes.txt"),
+    home_user = paste0("~someone", s, "notes", s, "a.txt"),
+    unlisted_space = paste0(s, "My Folder", s, " sub", s, "file.R"))
+  for (name in names(not_found)) expect_false(matches(not_found[[name]]), info = name)
+  # A first folder from the list of roots is found even when the second
+  # component begins with a space.
+  expect_true(matches(paste0(s, "opt", s, " sub", s, "file.R")))
 })
