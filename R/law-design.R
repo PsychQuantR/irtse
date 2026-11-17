@@ -14,6 +14,23 @@ check_atom_count <- function(n, limit, caller) {
   invisible(NULL)
 }
 
+# Positive integer lattice weights give at least J + 1 attainable totals (the
+# partial sums 0 < w1 < w1 + w2 < ... are distinct), and at least J - 1 without
+# the two extreme totals, which the MLE leaves out. A design whose bound is
+# already above the limit is refused before the attainable totals are
+# enumerated; the message gives the bound, not the count.
+check_atom_bound <- function(J, truncated, limit, caller) {
+  bound <- J + 1 - 2 * truncated
+  if (bound > limit) {
+    enumeration_error(paste0(
+      "the law of T has at least ", format(bound, scientific = FALSE, big.mark = ""),
+      " atoms, above the ", caller, " limit of ",
+      format(limit, scientific = FALSE, big.mark = "")
+    ))
+  }
+  invisible(NULL)
+}
+
 lattice_weights <- function(a) {
   ratios <- a / min(a)
   for (m in seq_len(1000L)) {
@@ -51,6 +68,7 @@ atom_plan <- function(a, estimator, limit, caller) {
       format(max(lattice$weights), scientific = FALSE, big.mark = ""), ")"
     ))
   }
+  check_atom_bound(length(lattice$weights), truncated, limit, caller)
   points <- reachable_points(lattice$weights)
   if (truncated) points <- points[points > 0 & points < width]
   check_atom_count(length(points), limit, caller)

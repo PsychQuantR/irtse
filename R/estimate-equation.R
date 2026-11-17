@@ -1,10 +1,45 @@
+# The number of abilities whose estimating equation is evaluated together: the
+# temporary matrices of a block have at most 1e6 elements, and a block has at
+# least one row.
+equation_block <- function(J) max(1L, as.integer(floor(1e6 / J)))
+
+# The estimating equation at each ability `theta` with its total `T` (recycled
+# to the length of `theta`). Every row is computed from that row alone, so the
+# rows are evaluated in blocks of equation_block() rows, which bounds the memory
+# by the block, not by the number of abilities. The three checks run on all rows
+# after the last block, in the order of an evaluation of all rows at once, so
+# the blocks change neither a returned double nor the error a call stops with.
 estimate_equation <- function(theta, a, b, estimator, T = 0) {
+  n <- length(theta)
+  T <- rep_len(T, n)
+  size <- equation_block(length(a))
+  starts <- if (n == 0L) 1L else seq.int(1L, n, by = size)
+  parts <- lapply(starts, function(start) {
+    rows <- seq_len(n)[seq.int(start, length.out = min(size, n - start + 1L))]
+    equation_rows(theta[rows], a, b, estimator, T[rows])
+  })
+  part <- function(name) unlist(lapply(parts, `[[`, name), use.names = FALSE)
+  if (any(!is.finite(part("largest")))) representation_error("estimating equation")
+  value <- part("value")
+  scale <- part("scale")
+  list(value = finite_value(sign(value) * exp(log(abs(value)) + scale),
+                            "estimating equation"),
+       derivative = finite_value(-exp(part("log_information")) +
+                                   part("correction_derivative"),
+                                 "estimating derivative"),
+       scaled_value = value, scaled_derivative = part("scaled_derivative"),
+       log_scale = scale)
+}
+
+# The quantities of the estimating equation for one block of rows, before the
+# checks of estimate_equation(). A row whose largest log weight is not finite
+# gives values that are not finite here; the caller stops on it.
+equation_rows <- function(theta, a, b, estimator, T) {
   eta <- sweep(outer(theta, b, "-"), 2L, a, "*")
   probabilities <- log_probabilities(eta)
   terms <- score_terms(eta, a, T, probabilities)
   log_weights <- sweep(probabilities$p + probabilities$q, 2L, 2 * log(a), "+")
   largest <- apply(log_weights, 1L, max)
-  if (any(!is.finite(largest))) representation_error("estimating equation")
   weights <- exp(log_weights - largest)
   total <- rowSums(weights)
   log_information <- largest + log(total)
@@ -21,12 +56,9 @@ estimate_equation <- function(theta, a, b, estimator, T = 0) {
   value <- compensated_rows(signs * exp(logs - scale))
   scaled_derivative <- -exp(log_information - scale) +
     sign(correction_derivative) * exp(log(abs(correction_derivative)) - scale)
-  list(value = finite_value(sign(value) * exp(log(abs(value)) + scale),
-                            "estimating equation"),
-       derivative = finite_value(-exp(log_information) + correction_derivative,
-                                 "estimating derivative"),
-       scaled_value = value, scaled_derivative = scaled_derivative,
-       log_scale = scale)
+  list(largest = largest, log_information = log_information, value = value,
+       scale = scale, scaled_derivative = scaled_derivative,
+       correction_derivative = correction_derivative)
 }
 
 score_terms <- function(eta, a, T, probabilities) {
