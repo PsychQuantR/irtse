@@ -1065,6 +1065,7 @@ test_that("A risk whose reports agree with the target may round to zero", {
   expect_false(finite_risk_or_stop(Inf, "smse_boot"))
   expect_false(finite_risk_or_stop(simpleError("scaled risk smse_info is not representable"),
                                    "smse_boot"))
+  expect_false(finite_risk_or_stop(simpleError("scaled risk smse_boot failed"), "smse_boot"))
 })
 
 # Requirement: Numerical range
@@ -1244,6 +1245,25 @@ retired_risk_sentences <- c(
 # folder two levels up), as opposed to the installed package under R CMD check.
 # A document that the source folder should have is then required, not skipped.
 in_source_folder <- function() dir.exists(testthat::test_path("..", "..", "R"))
+
+# Requirement: Numerical range
+# A control of the predicate that the Example "documents on the limits of the
+# double range" states for the source folder; the specification has no
+# Scenario of this name.
+test_that("The source folder is told apart from an installed package", {
+  base <- tempfile("irtse-tree-")
+  on.exit(unlink(base, recursive = TRUE), add = TRUE)
+  tree <- function(name, folders) {
+    path <- file.path(base, name)
+    dir.create(path, recursive = TRUE)
+    for (folder in folders) dir.create(file.path(path, folder))
+    path
+  }
+  expect_true(is_source_tree(tree("source", "R")))
+  expect_false(is_source_tree(tree("installed", c("R", "Meta"))))
+  expect_false(is_source_tree(tree("meta_only", "Meta")))
+  expect_false(is_source_tree(tree("neither", character())))
+})
 
 # The exported functions whose help pages carry the template of the numerical
 # limits.
@@ -1458,6 +1478,19 @@ test_that("The documents keep out the forms that the sentence check does not rea
   expect_identical(document_restriction_failures("~~a~~", "readme"), "strikethrough")
   expect_identical(document_restriction_failures("\\code{x} and `y`, 50\\%.", "help"),
                    character())
+  # The ASCII row reads the bytes of a file: a byte-order mark, and bytes after
+  # a NUL on the same line, where readLines() ends the line, are seen.
+  bom <- tempfile(fileext = ".md")
+  nul <- tempfile(fileext = ".md")
+  on.exit(unlink(c(bom, nul)), add = TRUE)
+  writeBin(c(as.raw(c(0xef, 0xbb, 0xbf)), charToRaw("Plain text.\n")), bom)
+  writeBin(c(charToRaw("A"), as.raw(0), charToRaw(" caf"), as.raw(c(0xc3, 0xa9)),
+             charToRaw("\n")), nul)
+  for (path in c(bom, nul)) {
+    expect_identical(document_restriction_failures(readLines(path, warn = FALSE), "readme",
+                                                   readBin(path, "raw", file.info(path)$size)),
+                     "not ASCII", info = basename(path))
+  }
 
   if (!in_source_folder()) {
     skip("The source files of the documents are not part of the installed package")
@@ -1688,6 +1721,34 @@ test_that("The scans skip the files that testthat leaves after a failing run", {
   # man and tests; inst is not among them.
   expect_identical(files_matching(source_scan_files(base, base), source_scan_patterns()),
                    planted)
+})
+
+# Requirement: Package metadata and documentation
+# A control of the two scans themselves; the specification has no Scenario of
+# this name.
+test_that("The scans read the leftover names in an installed package", {
+  base <- tempfile("irtse-installed-")
+  on.exit(unlink(base, recursive = TRUE), add = TRUE)
+  put <- function(relative, text) {
+    path <- file.path(base, relative)
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+    writeLines(text, path)
+  }
+  local_path <- paste0("/", "Users", "/", "someone", "/", "notes.txt")
+  # A package installed with its tests has an R folder, as a source folder
+  # has, and a Meta folder, which a source folder does not have. Its folder
+  # tests/testthat is installed from inst/tests/testthat, so a file there
+  # ships, whatever its name.
+  put("DESCRIPTION", "Package: control")
+  put(file.path("Meta", "package.rds"), "A stand-in.")
+  put(file.path("R", "control"), "A stand-in.")
+  put(file.path("tests", "testthat", "test-f.R"), paste("# see", local_path))
+  put(file.path("tests", "testthat", "_problems", "test-g.R"), local_path)
+  planted <- file.path(base, "tests", "testthat", c("test-f.R", "_problems/test-g.R"))
+  expect_setequal(files_matching(shipped_scan_files(base, base), shipped_scan_patterns()),
+                  planted)
+  expect_setequal(files_matching(source_scan_files(base, base), source_scan_patterns()),
+                  planted)
 })
 
 # Requirement: Package metadata and documentation
