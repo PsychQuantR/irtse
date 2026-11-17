@@ -2,6 +2,22 @@
 
 Unreleased development version.
 
+* Root solving evaluates the estimating equation in blocks of at most
+  `max(1, floor(1e6 / J))` abilities, so its memory no longer grows with the
+  number of totals times J. Returned values and errors are unchanged. For
+  `se_boot(rep(1, J), seq(-2, 2, length.out = J), 0, "MLE")` the peak of the R
+  heap (`gc()`, "max used") was 178 MB at J = 750 and 420 MB at J = 1500
+  before, and is 178, 254 and 261 MB at J = 750, 1500 and 3000 now; the peak
+  resident memory at J = 3000 fell from 5.2 GB to 1.4 GB. The running time is
+  not addressed here; it is followed in PsychQuant/IRT-theories issue 25.
+
+* A lattice design whose number of attainable totals is certainly above the
+  atom limit, because J positive integer weights give at least J + 1 of them
+  (J - 1 for the MLE, which leaves out the two extreme totals), is refused
+  before the totals are enumerated; the message reads "the law of T has at
+  least N atoms". These designs were refused before as well, after the
+  enumeration.
+
 * Correct what the documents say about the limits of the double range. A scaled
   risk stops the call when the logarithm the summation computes is below
   `log(2^-1074)` or when the value rebuilt from it is not finite or is 0. That
