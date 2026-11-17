@@ -1,5 +1,5 @@
-# The number of abilities whose estimating equation is evaluated together: at
-# most 1e6 / J, and at least one. A block of n abilities makes temporary matrices
+# The number of abilities whose estimating equation is evaluated together:
+# max(1, floor(1e6 / J)). A block of n abilities makes temporary matrices
 # of n rows and at most 2J + 2 columns (the residual's terms in score_terms()
 # have 2J, the scaled terms of the equation J + 2), so their size does not
 # depend on the number of abilities.
@@ -7,10 +7,13 @@ equation_block <- function(J) max(1L, as.integer(floor(1e6 / J)))
 
 # The estimating equation at each ability `theta` with its total `T` (recycled
 # to the length of `theta`). Every row is computed from that row alone, so the
-# rows are evaluated in blocks of equation_block() rows, which bounds the memory
-# by the block, not by the number of abilities. The three checks run on all rows
-# after the last block, in the order of an evaluation of all rows at once, so
-# the blocks change neither a returned double nor the error a call stops with.
+# rows are evaluated in blocks of equation_block() rows, which bounds the size of
+# the temporary matrices by the block, not by the number of abilities. The checks
+# of the largest log weight, of the value and of the derivative run on all rows
+# after the last block, in the order of an evaluation of all rows at once. The
+# check of the logits runs in each block; its message does not depend on the
+# row, and an evaluation at once runs it first. So the blocks change neither a
+# returned double nor the error a call stops with.
 estimate_equation <- function(theta, a, b, estimator, T = 0) {
   n <- length(theta)
   T <- rep_len(T, n)
