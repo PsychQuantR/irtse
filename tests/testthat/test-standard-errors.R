@@ -899,6 +899,67 @@ test_that("Errors from intermediate values may stop an otherwise representable r
 })
 
 # Requirement: Numerical range
+# spec-example: irtse-standard-errors / errors from intermediate values
+test_that("The values named for the calls that stop on an intermediate follow from the definitions", {
+  # The package stops on both calls of the Example, so the test above never
+  # compares the column "Value that would be returned". Here each named value
+  # is computed apart from the package, from the definitions the specification
+  # gives: kappa_r and k_r of the requirement on the design cumulants, and the
+  # formula of the third-order coefficient.
+  logistic <- function(eta) {
+    ifelse(eta < 0, exp(eta) / (1 + exp(eta)), 1 / (1 + exp(-eta)))
+  }
+  cumulants <- function(a, b, theta) {
+    P <- logistic(a * (theta - b))
+    u <- P * (1 - P)
+    kappa <- list(u, u * (1 - 2 * P), u * (1 - 6 * u),
+                  u * (1 - 2 * P) * (1 - 12 * u), u * (1 - 30 * u + 120 * u^2),
+                  u * (1 - 2 * P) * (1 - 60 * u + 360 * u^2))
+    stats::setNames(vapply(2:7, function(r) mean(a^r * kappa[[r - 1L]]),
+                           numeric(1)), paste0("k", 2:7))
+  }
+  third_order <- function(k) {
+    k2 <- k[["k2"]]; k3 <- k[["k3"]]; k4 <- k[["k4"]]
+    k5 <- k[["k5"]]; k6 <- k[["k6"]]; k7 <- k[["k7"]]
+    R3 <- 288 * k2^4 * k3 * k7 + 288 * k2^4 * k4 * k6 + 384 * k2^4 * k5^2 -
+      5152 * k2^3 * k3^2 * k6 - 16928 * k2^3 * k3 * k4 * k5 -
+      2120 * k2^3 * k4^3 + 49552 * k2^2 * k3^3 * k5 +
+      93388 * k2^2 * k3^2 * k4^2 - 279274 * k2 * k3^4 * k4 + 169263 * k3^6
+    -R3 / (768 * k2^10)
+  }
+  # The local formula is checked first on two rows of the Example "Delta_3
+  # table", against the exact values of the table and against delta3().
+  rows <- list(
+    list(a = c(1, 1), b = c(log(5), -log(5)), theta = 0, exact = 110889 / 625),
+    list(a = 1, b = 0, theta = stats::qlogis(3 / 10),
+         exact = -369968225 / 583443)
+  )
+  for (row in rows) {
+    local <- third_order(cumulants(row$a, row$b, row$theta))
+    expect_lt(abs(local / row$exact - 1), 1e-10)
+    expect_lt(abs(local / delta3(row$a, row$b, row$theta, "MLE") - 1), 1e-10)
+  }
+
+  k <- cumulants(c(1, 1000), c(730, 0), 0)
+  # k3: the item at its difficulty contributes exactly 0; the other item has
+  # P = x / (1 + x) with x = exp(-730), so u (1 - 2P) = x (1 - x) / (1 + x)^3.
+  # The named value is a subnormal number, where neighbouring doubles are
+  # 2^-1074 apart, a relative 1.1e-6 of this value. It is compared within two
+  # such spacings and, free of that rounding, on the logarithm.
+  named_k3 <- exp(-730) / 2
+  expect_true(named_k3 > 0 && named_k3 < 2^-1022)
+  expect_lte(abs(k[["k3"]] - named_k3), 2 * 2^-1074)
+  x <- exp(-730)
+  log_k3 <- -log(2) - 730 + log1p(-x) - 3 * log1p(x)
+  expect_lt(abs(log_k3 - (-730 - log(2))), 1e-12)
+  # "about 4.6e-318": within half a unit of the last digit given.
+  expect_lt(abs(named_k3 - 4.6e-318), 0.05e-318)
+  # Delta_3: with k3, k5 and k7 below 1e-317, only the terms in k4 k6 and
+  # k4^3 remain, and the value is -1936 / 3e6.
+  expect_lt(abs(third_order(k) / (-1936 / 3e6) - 1), 1e-12)
+})
+
+# Requirement: Numerical range
 test_that("A risk whose reports agree with the target may round to zero", {
   value <- risk_diff(c(1, 1 + 2^-36), c(0, 0), 0, "MLE")$smse_boot
   expect_true(is.finite(value) && value >= 0 && value < 1e-100)
