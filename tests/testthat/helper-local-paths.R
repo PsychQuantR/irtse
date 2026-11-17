@@ -48,12 +48,17 @@ relative_to_root <- function(paths, root) {
 # testthat writes tests/testthat/testthat-problems.rds and the folder
 # tests/testthat/_problems after a failing run. They hold the output of the
 # failures, which can name paths of the machine the tests ran on, and the next
-# run would report them; they are not package files, .Rbuildignore keeps them
-# out of the built package, and the scans skip them. Only in a source tree
-# (`installed = FALSE`), and only the two at the root of that tree, are they
-# skipped, so `root` is required for it: a file of the same name in a folder
-# that ships (inst/tests/testthat, say) is read, also in the installed
-# package, where that folder is installed as tests/testthat.
+# run would report them; .Rbuildignore keeps them out of the built package.
+# In a source tree (`installed = FALSE`) the two at the root of that tree are
+# skipped, so `root` is required for it; a file of the same name in a folder
+# that ships (inst/tests/testthat, say) is read. In an installed package
+# (`installed = TRUE`) neither name is skipped: the files below
+# tests/testthat/_problems are read, including those that a package installed
+# with its tests from its source folder carries from a failing run, and
+# testthat-problems.rds is not read, as no .rds file of an installed package
+# is. When the tests of the source folder run against an installed package,
+# shipped_scan_files() reads that package with `installed = FALSE`, so there
+# its tests/testthat/_problems is skipped and its serialized files are read.
 scannable_files <- function(paths, installed = TRUE, root = NULL) {
   inside <- if (is.null(root)) paths else relative_to_root(paths, root)
   serialized <- installed & grepl("[.](rdb|rdx|rds)$", inside, ignore.case = TRUE)
@@ -86,10 +91,14 @@ tree_files <- function(root) {
 }
 
 # Whether `root` is the source folder of a package: it has an R folder and,
-# unlike an installed package, which also has one, no Meta folder. The folder
-# in which R CMD check runs the tests has neither.
+# unlike an installed package, which also has one, no file Meta/package.rds,
+# which R CMD INSTALL writes into every installed package. A Meta folder
+# without that file (devtools writes a vignette index into one in a source
+# folder with vignettes; on a case-insensitive file system a folder named
+# meta also answers to Meta) does not count. The folder in which R CMD check
+# runs the tests has neither an R folder nor that file.
 is_source_tree <- function(root) {
-  dir.exists(file.path(root, "R")) && !dir.exists(file.path(root, "Meta"))
+  dir.exists(file.path(root, "R")) && !file.exists(file.path(root, "Meta", "package.rds"))
 }
 
 # The files read by the scan of the shipped package: every file of the

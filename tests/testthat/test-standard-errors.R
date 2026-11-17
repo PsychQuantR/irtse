@@ -684,8 +684,9 @@ test_that("Both scans report a local path planted in a package tree", {
   planted <- file.path(tree, "R", "code.R")
   expect_identical(report(tree, tree), list(shipped = planted, source = planted))
 
-  # An installed package: no R folder two levels above the tests. Its
-  # serialized files can match a pattern by chance and are not read.
+  # An installed package as R CMD check lays it out: the folder two levels
+  # above the tests, the check folder, has no R folder. Its serialized files
+  # can match a pattern by chance and are not read.
   check <- file.path(base, "check")
   installed <- file.path(check, "pkg")
   put(installed, "DESCRIPTION", "Package: control")
@@ -1242,8 +1243,8 @@ retired_risk_sentences <- c(
   "The outcomes of the calls named here")
 
 # Whether the tests run in the source folder of the package: the folder two
-# levels up is a source tree (is_source_tree(): an R folder and no Meta
-# folder), as opposed to an installed package, also one installed with its
+# levels up is a source tree (is_source_tree(): an R folder and no file
+# Meta/package.rds), as opposed to an installed package, also one installed with its
 # tests, or the folder of R CMD check. A document that the source folder
 # should have is then required, not skipped.
 in_source_folder <- function() is_source_tree(testthat::test_path("..", ".."))
@@ -1746,7 +1747,7 @@ test_that("The scans skip the files that testthat leaves after a failing run", {
 # Requirement: Package metadata and documentation
 # A control of the two scans themselves; the specification has no Scenario of
 # this name.
-test_that("The scans read the leftover names in an installed package", {
+test_that("The scans read the testthat leftover folder in an installed package", {
   base <- tempfile("irtse-installed-")
   on.exit(unlink(base, recursive = TRUE), add = TRUE)
   put <- function(relative, text) {
@@ -1756,9 +1757,10 @@ test_that("The scans read the leftover names in an installed package", {
   }
   local_path <- paste0("/", "Users", "/", "someone", "/", "notes.txt")
   # A package installed with its tests has an R folder, as a source folder
-  # has, and a Meta folder, which a source folder does not have. Its folder
-  # tests/testthat is installed from inst/tests/testthat, so a file there
-  # ships, whatever its name.
+  # has, and the file Meta/package.rds, which a source folder does not have.
+  # Its folder tests/testthat holds the tests folder of the source (R CMD
+  # INSTALL --install-tests), leftovers of a failing run included, or
+  # inst/tests/testthat, so a file there ships, whatever its name.
   put("DESCRIPTION", "Package: control")
   put(file.path("Meta", "package.rds"), "A stand-in.")
   put(file.path("R", "control"), "A stand-in.")
