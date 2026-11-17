@@ -638,6 +638,64 @@ test_that("All source files exclude local paths and private tracker references",
   expect_identical(files_matching(paths, source_scan_patterns()), character())
 })
 
+# Requirement: Package metadata and documentation
+# A control of the two scans themselves; the specification has no Scenario of
+# this name.
+test_that("Both scans report a local path planted in a package tree", {
+  base <- tempfile("irtse-scan-")
+  on.exit(unlink(base, recursive = TRUE), add = TRUE)
+  put <- function(root, relative, text) {
+    path <- file.path(root, relative)
+    dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+    writeLines(text, path)
+  }
+  local_path <- paste0("/", "Users", "/", "someone", "/", "notes.txt")
+  report <- function(package_root, source_root) {
+    list(shipped = files_matching(shipped_scan_files(package_root, source_root),
+                                  shipped_scan_patterns()),
+         source = files_matching(source_scan_files(package_root, source_root),
+                                 source_scan_patterns()))
+  }
+
+  # A source tree. It stands below a folder named .git, which is not part of
+  # the path of any file inside the tree. Its own .git folder and the .git
+  # file of a fixture below tests hold a local path, as version control does.
+  tree <- file.path(base, ".git", "pkg")
+  put(tree, "DESCRIPTION", "Package: control")
+  put(tree, "README.md", "A control tree.")
+  put(tree, "NEWS.md", "No news.")
+  put(tree, file.path("R", "code.R"), "f <- function() 1")
+  put(tree, file.path("man", "f.Rd"), "\\name{f}")
+  put(tree, file.path("tests", "testthat", "test-f.R"), "f()")
+  put(tree, file.path(".git", "logs", "HEAD"), local_path)
+  put(tree, file.path("tests", "testthat", "fixture", ".git"),
+      paste("gitdir:", local_path))
+  expect_gt(length(shipped_scan_files(tree, tree)), 0L)
+  expect_gt(length(source_scan_files(tree, tree)), 0L)
+  expect_identical(report(tree, tree),
+                   list(shipped = character(), source = character()))
+  put(tree, file.path("R", "code.R"),
+      c("f <- function() 1", paste("# see", local_path)))
+  planted <- file.path(tree, "R", "code.R")
+  expect_identical(report(tree, tree), list(shipped = planted, source = planted))
+
+  # An installed package: no R folder two levels above the tests. Its
+  # serialized files can match a pattern by chance and are not read.
+  check <- file.path(base, "check")
+  installed <- file.path(check, "pkg")
+  put(installed, "DESCRIPTION", "Package: control")
+  put(installed, "NEWS.md", "No news.")
+  put(installed, file.path("R", "pkg.rdb"), local_path)
+  put(installed, file.path("help", "aliases.rds"), local_path)
+  expect_gt(length(shipped_scan_files(installed, check)), 0L)
+  expect_identical(report(installed, check),
+                   list(shipped = character(), source = character()))
+  put(installed, "NEWS.md", paste("See", local_path))
+  planted <- file.path(installed, "NEWS.md")
+  expect_identical(report(installed, check),
+                   list(shipped = planted, source = planted))
+})
+
 # Requirement: Exact law of the sufficient statistic
 # spec-example: irtse-standard-errors / exact laws and identified designs
 test_that("Nearly equal discriminations are not merged", {
