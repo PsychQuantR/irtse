@@ -43,6 +43,14 @@ this function uses scaled reports, multiplied by \code{sqrt(J)}.
 Exact enumeration stops above 2000 atoms or lattice width 1e6. The package
 stops instead of approximating. Missing or non-unique roots cause an error
 naming T. The optional rule is provisional; see \code{\link[=se_select]{se_select()}} for its scope.
+
+Running times measured on 2026-11-18 on an Apple M4 Mac mini (10 cores) with
+R 4.6.2, one call per R process, with the one-minute load average below 4
+before and after each call: 127 s at the limit, for 2001 equal
+discriminations (2000 atoms for the MLE), where the lattice width equals the
+number of items. With unequal discriminations and a wide lattice a design
+with as many atoms takes much longer; no such call was timed.
+
 WLE roots are counted on a grid and at function extrema located by derivative
 sign changes and searches at sampled local extrema of the derivative.
 Features narrower than the grid spacing can still be missed; this count

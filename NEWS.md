@@ -13,6 +13,10 @@ Unreleased development version.
   the blocks add running time, more for more items; this change does not
   otherwise address the running time.
 
+* The help pages of `se_boot()` and `risk_diff()` give measured running times
+  of calls near each limit of exact enumeration, with the machine, the R
+  version and the load under which they were measured.
+
 * A lattice design whose number of attainable totals is certainly above the
   atom limit, because J positive integer weights give at least J + 1 of them
   (J - 1 for the MLE, which leaves out the two extreme totals), is refused

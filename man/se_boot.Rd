@@ -34,6 +34,15 @@ are computed as \verb{log P = plogis(eta, log.p = TRUE)} and
 Computation stops if the atom count exceeds 100000 or lattice width exceeds
 1e6. The package stops instead of approximating. A missing or non-unique
 estimator root also causes an error naming the sufficient statistic T.
+
+Running times measured on 2026-11-18 on an Apple M4 Mac mini (10 cores) with
+R 4.6.2, one call per R process, with the one-minute load average below 4
+before and after each call: 88.3 s for 3000 equal discriminations (2999
+atoms for the MLE), 547 s for \code{a = rep(c(1, 317), 315)} (630 items, 99854
+atoms for the MLE), 0.01 s for two items with lattice width 999999, and less
+than 0.01 s to refuse 150000 equal discriminations, whose lower bound of the
+atom count is above the limit.
+
 WLE roots are counted on a grid and at function extrema located by derivative
 sign changes and searches at sampled local extrema of the derivative.
 Features narrower than the grid spacing can still be missed; this count
