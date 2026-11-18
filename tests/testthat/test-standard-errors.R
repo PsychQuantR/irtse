@@ -1510,6 +1510,12 @@ test_that("The documents keep out the forms that the sentence check does not rea
     expect_identical(restriction_failures_of_file(path, "readme"), "not ASCII",
                      info = basename(path))
   }
+  # The other rows read the lines that readLines() returns, and a line ends at
+  # a NUL: an HTML comment that follows a NUL on its line is not seen by them.
+  after_nul <- tempfile(fileext = ".md")
+  on.exit(unlink(after_nul), add = TRUE)
+  writeBin(c(charToRaw("A"), as.raw(0), charToRaw(" <!-- a -->\n")), after_nul)
+  expect_identical(restriction_failures_of_file(after_nul, "readme"), character())
 
   if (!in_source_folder()) {
     skip("The source files of the documents are checked only in the source folder of the package")

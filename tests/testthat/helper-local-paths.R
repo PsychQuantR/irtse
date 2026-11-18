@@ -52,13 +52,14 @@ relative_to_root <- function(paths, root) {
 # In a source tree (`installed = FALSE`) the two at the root of that tree are
 # skipped, so `root` is required for it; a file of the same name in a folder
 # that ships (inst/tests/testthat, say) is read. In an installed package
-# (`installed = TRUE`) neither name is skipped: the files below
+# (`installed = TRUE`) neither is dropped because of its name: the files below
 # tests/testthat/_problems are read, including those that a package installed
 # with its tests from its source folder carries from a failing run, and
-# testthat-problems.rds is not read, as no .rds file of an installed package
-# is. When the tests of the source folder run against an installed package,
-# shipped_scan_files() reads that package with `installed = FALSE`, so there
-# its tests/testthat/_problems is skipped and its serialized files are read.
+# testthat-problems.rds is not read only because no .rds file of an installed
+# package is. When the tests of the source folder run against an installed
+# package, shipped_scan_files() reads that package with `installed = FALSE`,
+# so there both leftovers below its tests/testthat are skipped and its other
+# serialized files are read.
 scannable_files <- function(paths, installed = TRUE, root = NULL) {
   inside <- if (is.null(root)) paths else relative_to_root(paths, root)
   serialized <- installed & grepl("[.](rdb|rdx|rds)$", inside, ignore.case = TRUE)
