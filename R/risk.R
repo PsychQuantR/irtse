@@ -31,8 +31,9 @@
 #' R 4.6.2, one call per R process, with the one-minute load average below 4
 #' before and after each call: 127 s at the limit, for 2001 equal
 #' discriminations (2000 atoms for the MLE), where the lattice width equals the
-#' number of items. With unequal discriminations and a wide lattice a design
-#' with as many atoms takes much longer; no such call was timed.
+#' number of items. This call uses the MLE. With the WLE, or with a wide
+#' lattice, a design with as many atoms can take much longer; no such call was
+#' timed.
 #'
 #' WLE roots are counted on a grid and at function extrema located by derivative
 #' sign changes and searches at sampled local extrema of the derivative.

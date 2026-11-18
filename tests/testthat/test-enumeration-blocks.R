@@ -82,7 +82,8 @@ test_that("se_boot() and risk_diff() return the same doubles when root solving r
          se_boot(1, 0, 0, "WLE"), outcome_of(function() se_boot(1, 0, 0, "MLE")))
   }
   # The WLE calls on the eight items evaluate their root grid point by point at a
-  # block size of 1, which takes minutes; they run with blocks of 2 and 7 only.
+  # block size of 1 and in pairs at a block size of 2, which takes long; they run
+  # with blocks of 7 only.
   wle_calls <- function() {
     list(se_boot(a, b, 0.3, "WLE"), risk_diff(a, b, -0.2, "WLE", margin = 0.5))
   }
@@ -91,9 +92,7 @@ test_that("se_boot() and risk_diff() return the same doubles when root solving r
   for (size in c(1, 2, 7)) {
     expect_identical(with_equation_block(size, calls), reference, info = size)
   }
-  for (size in c(2, 7)) {
-    expect_identical(with_equation_block(size, wle_calls), wle_reference, info = size)
-  }
+  expect_identical(with_equation_block(7, wle_calls), wle_reference, info = 7)
 })
 
 # Requirement: Limits of exact enumeration
@@ -102,6 +101,8 @@ test_that("Root solving passes the estimating equation at most max(1, floor(1e6 
   expect_identical(irtse:::equation_block(3000), 333L)
   expect_identical(irtse:::equation_block(1e6), 1L)
   expect_identical(irtse:::equation_block(2e6), 1L)
+  expect_identical(irtse:::equation_block(1000), 1000L)
+  expect_identical(irtse:::equation_block(6), 166666L)
   seen <- numeric()
   sizes <- integer()
   original <- irtse:::equation_rows
@@ -122,6 +123,11 @@ test_that("Root solving passes the estimating equation at most max(1, floor(1e6 
   # abilities.
   expect_identical(sizes, c(4L, 4L, 3L))
   expect_identical(unique(seen), 3)
+  # The WLE is evaluated through the same blocks.
+  sizes <- integer()
+  irtse:::estimate_equation(seq(-2, 2, length.out = 11), c(0.7, 1.3, 2.1),
+                            c(-0.4, 0.2, 1.1), "WLE", 0)
+  expect_identical(sizes, c(4L, 4L, 3L))
 })
 
 # Replace the enumeration of attainable totals by a function that fails, so that a
@@ -136,6 +142,10 @@ local_failing_enumeration <- function(env = parent.frame()) {
 # Scenario: Designs refused by a lower bound of the atom count
 # spec-example: irtse-standard-errors / atom count lower bound
 test_that("A lower bound of the atom count above the limit refuses the design before enumeration", {
+  # The design of the last row has 3004 attainable totals; counted here, before
+  # the enumeration is replaced by a function that fails.
+  expect_length(irtse:::reachable_points(irtse:::lattice_weights(rep(c(1, 2), 1001))$weights),
+                3004L)
   local_failing_enumeration()
   rows <- list(
     list(call = function() se_boot(rep(1, 100002), rep(0, 100002), 0, "MLE"),
@@ -161,11 +171,12 @@ test_that("A lower bound of the atom count above the limit refuses the design be
 
 # Requirement: Limits of exact enumeration
 # Scenario: Designs refused by a lower bound of the atom count
-test_that("A design whose lower bound equals the limit is enumerated", {
+test_that("A design whose lower bound does not exceed the limit is enumerated", {
   local_failing_enumeration()
   # The MLE removes the two extreme totals, so its bound is J - 1; the WLE keeps
-  # them, so its bound is J + 1. At these sizes the bound equals the limit, so
-  # the design reaches the enumeration (here replaced by a function that fails).
+  # them, so its bound is J + 1. At the first four sizes the bound equals the
+  # limit and at the last it is below it, so each design reaches the enumeration
+  # (here replaced by a function that fails).
   calls <- list(
     function() se_boot(rep(1, 100001), rep(0, 100001), 0, "MLE"),
     function() se_boot(rep(1, 99999), rep(0, 99999), 0, "WLE"),

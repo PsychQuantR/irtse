@@ -41,7 +41,9 @@ before and after each call: 88.3 s for 3000 equal discriminations (2999
 atoms for the MLE), 547 s for \code{a = rep(c(1, 317), 315)} (630 items, 99854
 atoms for the MLE), 0.01 s for two items with lattice width 999999, and less
 than 0.01 s to refuse 150000 equal discriminations, whose lower bound of the
-atom count is above the limit.
+atom count is above the limit. These calls use the MLE. With the WLE, or
+with more items near the same atom count or lattice width, a call can take
+much longer; no such call was timed.
 
 WLE roots are counted on a grid and at function extrema located by derivative
 sign changes and searches at sampled local extrema of the derivative.

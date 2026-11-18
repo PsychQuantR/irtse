@@ -21,8 +21,8 @@ Unreleased development version.
   atom limit, because J positive integer weights give at least J + 1 of them
   (J - 1 for the MLE, which leaves out the two extreme totals), is refused
   before the totals are enumerated; the message reads "the law of T has at
-  least N atoms". These designs were refused before as well, after the
-  enumeration.
+  least B atoms", B being that lower bound. These designs were refused before
+  as well, after the enumeration.
 
 * Correct what the documents say about the limits of the double range. A scaled
   risk stops the call when the logarithm the summation computes is below
