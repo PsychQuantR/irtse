@@ -2,8 +2,11 @@ Package: irtse
 Type: Package
 Title: Information-Based and Exact Bootstrap Standard Errors for IRT Ability Estimates
 Version: 0.0.0.9000
-Authors@R: person("Che", "Cheng", email = "che830621@stat.sinica.edu.tw",
-                  role = c("aut", "cre"))
+Authors@R: c(
+    person("Che", "Cheng", email = "che830621@stat.sinica.edu.tw",
+           role = c("aut", "cre")),
+    person("Hau-Hung", "Yang", email = "hauhungyang@as.edu.tw",
+           role = "aut"))
 Description: For dichotomous logistic item response models with one or two
     item parameters, computes the information-based standard error and the
     exact parametric-bootstrap standard error of the ability estimate (the

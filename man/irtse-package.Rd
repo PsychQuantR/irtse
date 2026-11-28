@@ -16,6 +16,7 @@ stop when enumeration limits are exceeded; they do not approximate.
 Authors:
 \itemize{
   \item Che Cheng \email{che830621@stat.sinica.edu.tw}
+  \item Hau-Hung Yang \email{hauhungyang@as.edu.tw}
 }
 
 }
