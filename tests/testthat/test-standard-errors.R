@@ -447,12 +447,26 @@ test_that("Package metadata matches the specification", {
   expect_identical(description$Version, "0.0.0.9000")
   expect_identical(description$License, "MIT + file LICENSE")
   expect_identical(trimws(strsplit(description$Imports, ",")[[1]]), "stats")
+})
+
+# Requirement: Package metadata and documentation
+# spec-example: irtse-standard-errors / authors and contact
+test_that("The package names its two authors and its contact", {
+  description <- utils::packageDescription("irtse")
   authors <- eval(parse(text = description$`Authors@R`))
-  expect_length(authors, 1L)
-  expect_identical(authors$given, "Che")
-  expect_identical(authors$family, "Cheng")
-  expect_identical(authors$email, "che830621@stat.sinica.edu.tw")
-  expect_identical(authors$role, c("aut", "cre"))
+  expect_length(authors, 2L)
+  expect_identical(authors[[1]]$given, "Che")
+  expect_identical(authors[[1]]$family, "Cheng")
+  expect_identical(authors[[1]]$email, "che830621@stat.sinica.edu.tw")
+  expect_identical(authors[[1]]$role, c("aut", "cre"))
+  expect_identical(authors[[2]]$given, "Hau-Hung")
+  expect_identical(authors[[2]]$family, "Yang")
+  expect_identical(authors[[2]]$email, "hauhungyang@as.edu.tw")
+  expect_identical(authors[[2]]$role, "aut")
+  # exactly one person is the maintainer and contact, and it is the first
+  expect_identical(which(vapply(authors, function(p) "cre" %in% p$role, TRUE)), 1L)
+  holder <- grep("^COPYRIGHT HOLDER:", readLines(system.file("LICENSE", package = "irtse")), value = TRUE)
+  expect_identical(holder, "COPYRIGHT HOLDER: Che Cheng and Hau-Hung Yang")
 })
 
 # Requirement: Package metadata and documentation
